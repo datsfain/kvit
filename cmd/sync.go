@@ -5,6 +5,7 @@ import (
 	"kvit/config"
 	"kvit/drive"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -50,6 +51,39 @@ var syncPullCmd = &cobra.Command{
 	},
 }
 
+var syncLinkCmd = &cobra.Command{
+	Use:   "link",
+	Short: "Link to a shared Google Drive folder",
+	Long: `Link kvit to a shared Google Drive folder so multiple people can sync to the same data.
+
+The folder owner runs "kvit sync open" and shares the folder. Others paste the folder URL here.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		ensureAuth()
+
+		if len(args) > 0 {
+			if err := drive.LinkFolder(args[0]); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
+
+		// Interactive: ask for URL
+		fmt.Print("Paste the shared Google Drive folder URL: ")
+		var input string
+		fmt.Scanln(&input)
+		input = strings.TrimSpace(input)
+		if input == "" {
+			fmt.Println("No URL provided.")
+			return
+		}
+		if err := drive.LinkFolder(input); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
 var syncOpenCmd = &cobra.Command{
 	Use:   "open",
 	Short: "Open the kvit folder on Google Drive in your browser",
@@ -66,6 +100,7 @@ func init() {
 	syncCmd.AddCommand(syncPushCmd)
 	syncCmd.AddCommand(syncPullCmd)
 	syncCmd.AddCommand(syncOpenCmd)
+	syncCmd.AddCommand(syncLinkCmd)
 	rootCmd.AddCommand(syncCmd)
 }
 

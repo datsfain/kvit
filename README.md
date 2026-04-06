@@ -91,18 +91,18 @@ kvit auth --force      # re-authenticate
 kvit auth logout       # remove stored credentials
 ```
 
-Opens your browser, you sign in with Google, and kvit stores a token locally at `~/.config/kvit/token.json`. kvit only requests access to files it creates — it cannot see any other files on your Drive.
+Opens your browser, you sign in with Google, and kvit stores a token locally at `~/.config/kvit/token.json`.
 
 ### `kvit sync` — Sync with Google Drive
 
 ```bash
 kvit sync push   # upload local CSVs to Google Drive (overwrites remote)
 kvit sync pull   # download from Google Drive to local (overwrites local)
+kvit sync open   # open the kvit folder on Google Drive in your browser
+kvit sync link   # link to a shared folder (for family sharing)
 ```
 
-Files are stored in a `kvit` folder on your Google Drive. Open [Google Drive](https://drive.google.com), navigate to the `kvit` folder, and double-click any CSV to view or edit it in Google Sheets.
-
-`push` overwrites remote, `pull` overwrites local — always pick the right direction.
+Files are stored in a `kvit` folder on your Google Drive. `push` overwrites remote, `pull` overwrites local — always pick the right direction.
 
 ### `kvit update` — Self-update
 
@@ -136,3 +136,48 @@ shoes
 ```
 
 These CSVs are designed to be opened directly in Google Sheets for viewing, editing, or building charts.
+
+## Family sharing
+
+Multiple people can share the same expense data through a shared Google Drive folder.
+
+### Setup (folder owner)
+
+```bash
+kvit sync push             # push your data to Drive
+kvit sync open             # opens the kvit folder in your browser
+```
+
+In Google Drive, right-click the `kvit` folder → **Share** → add your family member's email as **Editor**.
+
+Copy the folder URL from the browser (e.g. `https://drive.google.com/drive/folders/1aBcD...`).
+
+### Setup (family member)
+
+```bash
+# Install kvit
+curl -sSL https://raw.githubusercontent.com/datsfain/kvit/main/install.sh | bash
+
+# Create a local folder and enter it
+mkdir ~/expenses && cd ~/expenses
+
+# Sign in with their own Google account
+kvit auth
+
+# Link to the shared folder
+kvit sync link
+# Paste the shared folder URL when prompted
+
+# Pull the existing data
+kvit sync pull
+```
+
+### Daily use (both people)
+
+```bash
+kvit sync pull             # get latest changes
+kvit add netto milk:12     # add expenses
+kvit sync push             # upload changes
+```
+
+Always `pull` before adding expenses to avoid overwriting each other's changes.

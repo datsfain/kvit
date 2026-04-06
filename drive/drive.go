@@ -31,7 +31,7 @@ const (
 
 var oauthConfig = &oauth2.Config{
 	ClientID: clientID,
-	Scopes:   []string{drive.DriveFileScope},
+	Scopes:   []string{drive.DriveScope},
 	Endpoint: oauth2.Endpoint{
 		AuthURL:  authURL,
 		TokenURL: tokenURL,
@@ -57,14 +57,86 @@ func generateCodeChallenge(verifier string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
-func tokenPath() string {
+func configDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "kvit-token.json"
+		return "."
 	}
 	dir := filepath.Join(home, ".config", "kvit")
 	os.MkdirAll(dir, 0700)
-	return filepath.Join(dir, "token.json")
+	return dir
+}
+
+func tokenPath() string {
+	return filepath.Join(configDir(), "token.json")
+}
+
+func configPath() string {
+	return filepath.Join(configDir(), "config.json")
+}
+
+type kvitConfig struct {
+	FolderID string `json:"folder_id,omitempty"`
+}
+
+func loadConfig() kvitConfig {
+	var c kvitConfig
+	data, err := os.ReadFile(configPath())
+	if err != nil {
+		return c
+	}
+	json.Unmarshal(data, &c)
+	return c
+}
+
+func saveConfig(c kvitConfig) error {
+	data, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(configPath(), data, 0600)
+}
+
+// LinkFolder saves a shared folder ID for syncing
+func LinkFolder(folderURL string) error {
+	// Extract folder ID from URL like https://drive.google.com/drive/folders/1aBcD...
+	id := folderURL
+	if strings.Contains(folderURL, "drive.google.com") {
+		parts := strings.Split(strings.TrimRight(folderURL, "/"), "/")
+		id = parts[len(parts)-1]
+		// Remove query params
+		if idx := strings.Index(id, "?"); idx != -1 {
+			id = id[:idx]
+		}
+	}
+
+	if id == "" {
+		return fmt.Errorf("could not extract folder ID from URL")
+	}
+
+	// Verify access
+	srv, err := getService()
+	if err != nil {
+		return err
+	}
+	folder, err := srv.Files.Get(id).Fields("id, name").Do()
+	if err != nil {
+		return fmt.Errorf("cannot access folder: %w\nMake sure the folder is shared with your Google account", err)
+	}
+
+	c := loadConfig()
+	c.FolderID = id
+	if err := saveConfig(c); err != nil {
+		return err
+	}
+
+	fmt.Printf("✓ Linked to folder: %s\n", folder.Name)
+	return nil
+}
+
+// GetLinkedFolder returns the configured folder ID, if any
+func GetLinkedFolder() string {
+	return loadConfig().FolderID
 }
 
 func saveToken(token *oauth2.Token) error {
@@ -287,8 +359,13 @@ func escapeQuery(s string) string {
 	return strings.ReplaceAll(s, "'", "\\'")
 }
 
-// getOrCreateFolder finds or creates the "kvit" folder in Drive root
+// getOrCreateFolder returns the linked folder ID, or finds/creates the "kvit" folder in Drive root
 func getOrCreateFolder(srv *drive.Service) (string, error) {
+	// Use linked folder if configured
+	if linked := GetLinkedFolder(); linked != "" {
+		return linked, nil
+	}
+
 	// Search for existing folder
 	q := fmt.Sprintf("name='%s' and mimeType='application/vnd.google-apps.folder' and trashed=false", escapeQuery(folderName))
 	list, err := srv.Files.List().Q(q).Fields("files(id, name)").Do()
