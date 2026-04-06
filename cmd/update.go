@@ -46,7 +46,11 @@ func runUpdate(cmd *cobra.Command, args []string) {
 	}
 
 	if err := selfupdate.UpdateTo(cmd.Context(), latest.AssetURL, latest.AssetName, exe); err != nil {
-		fmt.Fprintf(os.Stderr, "Error updating: %v\n", err)
+		if os.IsPermission(err) {
+			fmt.Fprintf(os.Stderr, "Error: permission denied. Try: sudo kvit update\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "Error updating: %v\n", err)
+		}
 		os.Exit(1)
 	}
 
