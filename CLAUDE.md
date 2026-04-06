@@ -55,6 +55,10 @@ All data is plain CSV in the working directory:
 - `exclusions.csv` — products hidden from AI prompt
 - `colors.csv` — category hex colors for reports
 
+### Date Format Convention
+
+Dates are stored as YYYY-MM-DD in CSV and used internally for filtering/sorting. In the HTML report, all displayed dates use the `fmtDate(iso)` helper in `report/app.js` which renders as human-readable format: "1 Apr 2026". Never show raw ISO dates to users.
+
 ### TUI Pattern
 
 Interactive components use Charmbracelet Bubbletea. Models implement `Init()`, `Update(msg)`, `View()`. Styling via Lipgloss.

@@ -17,6 +17,13 @@ function round2(n) { return Math.round(n * 100) / 100; }
 
 function getCat(product) { return catMap[product] || 'uncategorized'; }
 
+function fmtDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return parseInt(d) + ' ' + months[parseInt(m) - 1] + ' ' + y;
+}
+
 function getProductPurchases(data, product) {
   return data.filter(e => e.product === product).sort((a, b) => b.date.localeCompare(a.date));
 }
@@ -208,7 +215,7 @@ function updateStats(data) {
   document.getElementById('stats').innerHTML =
     statCard('Total Spent', total.toFixed(2), DATA.currency, '', true) +
     statCard('Avg / Day', avgDay.toFixed(2), DATA.currency, days + ' days') +
-    statCard('Most Expensive Day', maxDayTotal.toFixed(2), DATA.currency, maxDay) +
+    statCard('Most Expensive Day', maxDayTotal.toFixed(2), DATA.currency, fmtDate(maxDay)) +
     statCard('Top Product', maxProdTotal.toFixed(2), DATA.currency, maxProd);
 }
 
@@ -294,7 +301,7 @@ function updateDailyLine(data) {
   state.charts.dailyLine = new Chart(document.getElementById('dailyLine'), {
     type: 'line',
     data: {
-      labels: dates,
+      labels: dates.map(fmtDate),
       datasets: [{
         data: values, borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)',
         fill: true, tension: 0.3, pointRadius: 4, pointHoverRadius: 6
@@ -334,7 +341,7 @@ function getBucketLabel(key) {
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return months[parseInt(m) - 1] + ' ' + y;
   }
-  return 'Week of ' + key;
+  return 'Week of ' + fmtDate(key);
 }
 
 function updateWeeklyStacked(data) {
@@ -508,7 +515,7 @@ function showProductDetail(product) {
 
   const tbody = document.querySelector('#productDetailTable tbody');
   tbody.innerHTML = purchases.map(p =>
-    '<tr><td>' + esc(p.date) + '</td><td>' + esc(p.store) + '</td><td class="amount">' +
+    '<tr><td>' + fmtDate(p.date) + '</td><td>' + esc(p.store) + '</td><td class="amount">' +
     p.price.toFixed(2) + '</td><td><a class="trip-link" data-date="' + esc(p.date) +
     '" data-store="' + esc(p.store) + '" data-product="' + esc(product) + '">see trip</a></td></tr>'
   ).join('');
@@ -544,7 +551,7 @@ function toggleTrip(link) {
   const tripRow = document.createElement('tr');
   tripRow.className = 'trip-detail-row';
   tripRow.innerHTML = '<td colspan="4"><div class="receipt">' +
-    '<div class="receipt-header">' + esc(link.dataset.store) + ' · ' + esc(link.dataset.date) + '</div>' +
+    '<div class="receipt-header">' + esc(link.dataset.store) + ' · ' + fmtDate(link.dataset.date) + '</div>' +
     lines +
     '<div class="receipt-total"><span>Total</span><span>' + tripTotal.toFixed(2) + ' ' + DATA.currency + '</span></div>' +
     '</div></td>';
