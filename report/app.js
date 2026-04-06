@@ -17,6 +17,14 @@ function round2(n) { return Math.round(n * 100) / 100; }
 
 function getCat(product) { return catMap[product] || 'uncategorized'; }
 
+function getProductPurchases(data, product) {
+  return data.filter(e => e.product === product).sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function getTripItems(date, store, excludeProduct) {
+  return DATA.expenses.filter(e => e.date === date && e.store === store && e.product !== excludeProduct);
+}
+
 // ISO date format ensures string comparison works for filtering
 function today() { return new Date().toISOString().slice(0, 10); }
 function monthStart(d) { return d.slice(0, 7) + '-01'; }
@@ -427,7 +435,7 @@ function updateProductTable(data) {
     });
 
     tbody.innerHTML = entries.map(e =>
-      '<tr><td>' + esc(e.name) + '</td><td>' + esc(e.category) + '</td><td class="amount">' +
+      '<tr><td><a class="product-link" data-product="' + esc(e.name) + '">' + esc(e.name) + '</a></td><td>' + esc(e.category) + '</td><td class="amount">' +
       e.total.toFixed(2) + '</td><td class="pct"><span class="pct-bar" style="width:' +
       Math.max(e.pct * 0.8, 2) + 'px"></span>' + e.pct.toFixed(1) + '%</td></tr>'
     ).join('');
@@ -461,7 +469,7 @@ function updateProductTable(data) {
       const prods = search ? matchingProducts : g.products;
       prods.forEach(p => {
         html += '<tr class="product-row ' + (expanded ? '' : 'hidden') + '" data-cat="' + esc(cat) +
-          '"><td>' + esc(p.name) + '</td><td>' + esc(cat) + '</td><td class="amount">' +
+          '"><td><a class="product-link" data-product="' + esc(p.name) + '">' + esc(p.name) + '</a></td><td>' + esc(cat) + '</td><td class="amount">' +
           p.total.toFixed(2) + '</td><td class="pct"><span class="pct-bar" style="width:' +
           Math.max(p.pct * 0.8, 2) + 'px"></span>' + p.pct.toFixed(1) + '%</td></tr>';
       });
@@ -477,12 +485,77 @@ function updateProductTable(data) {
     });
   }
 
+  document.querySelectorAll('.product-link').forEach(link => {
+    link.onclick = (e) => { e.stopPropagation(); showProductDetail(link.dataset.product); };
+  });
+
   document.querySelectorAll('#productTable th').forEach(th => {
     const col = th.dataset.sort;
     const arrow = th.querySelector('.sort-arrow');
     arrow.textContent = col === state.tableSortCol ? (state.tableSortAsc ? ' ▲' : ' ▼') : '';
   });
 }
+
+// ── Product detail ──
+
+function showProductDetail(product) {
+  const purchases = getProductPurchases(state.filtered, product);
+  const total = purchases.reduce((s, e) => s + e.price, 0);
+
+  document.getElementById('productDetailTitle').textContent = product;
+  document.getElementById('productDetailSummary').textContent =
+    total.toFixed(2) + ' ' + DATA.currency + ' · ' + purchases.length + ' purchases';
+
+  const tbody = document.querySelector('#productDetailTable tbody');
+  tbody.innerHTML = purchases.map(p =>
+    '<tr><td>' + esc(p.date) + '</td><td>' + esc(p.store) + '</td><td class="amount">' +
+    p.price.toFixed(2) + '</td><td><a class="trip-link" data-date="' + esc(p.date) +
+    '" data-store="' + esc(p.store) + '" data-product="' + esc(product) + '">see trip</a></td></tr>'
+  ).join('');
+
+  tbody.querySelectorAll('.trip-link').forEach(link => {
+    link.onclick = () => toggleTrip(link);
+  });
+
+  const panel = document.getElementById('productDetail');
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+function toggleTrip(link) {
+  const row = link.closest('tr');
+  const next = row.nextElementSibling;
+  if (next && next.classList.contains('trip-detail-row')) {
+    next.remove();
+    link.textContent = 'see trip';
+    return;
+  }
+
+  const others = getTripItems(link.dataset.date, link.dataset.store, link.dataset.product);
+  if (others.length === 0) {
+    link.textContent = 'only item';
+    return;
+  }
+
+  const tripTotal = others.reduce((s, e) => s + e.price, 0);
+  const lines = others.map(e =>
+    '<div class="receipt-line"><span>' + esc(e.product) + '</span><span>' + e.price.toFixed(2) + '</span></div>'
+  ).join('');
+  const tripRow = document.createElement('tr');
+  tripRow.className = 'trip-detail-row';
+  tripRow.innerHTML = '<td colspan="4"><div class="receipt">' +
+    '<div class="receipt-header">' + esc(link.dataset.store) + ' · ' + esc(link.dataset.date) + '</div>' +
+    lines +
+    '<div class="receipt-total"><span>Total</span><span>' + tripTotal.toFixed(2) + ' ' + DATA.currency + '</span></div>' +
+    '</div></td>';
+  row.after(tripRow);
+  link.textContent = 'hide trip';
+}
+
+function closeProductDetail() {
+  document.getElementById('productDetail').style.display = 'none';
+}
+window.closeProductDetail = closeProductDetail;
 
 // ── Event listeners ──
 
