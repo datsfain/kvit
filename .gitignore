@@ -5,6 +5,7 @@ kvit
 expenses.csv
 definitions.csv
 exclusions.csv
+kvit.json
 
 # Build output
 dist/
