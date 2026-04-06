@@ -5,9 +5,11 @@ kvit
 expenses.csv
 definitions.csv
 exclusions.csv
+colors.csv
 
 # Build output
 dist/
+kvit-report.html
 
 # IDE
 .idea/

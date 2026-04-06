@@ -4,6 +4,7 @@ const (
 	ExpensesFile    = "expenses.csv"
 	DefinitionsFile = "definitions.csv"
 	ExclusionsFile  = "exclusions.csv"
+	ColorsFile      = "colors.csv"
 )
 
 func ExpensesPath() string {
@@ -18,7 +19,11 @@ func ExclusionsPath() string {
 	return ExclusionsFile
 }
 
+func ColorsPath() string {
+	return ColorsFile
+}
+
 // SyncableFiles returns all CSV files that should be synced
 func SyncableFiles() []string {
-	return []string{ExpensesFile, DefinitionsFile, ExclusionsFile}
+	return []string{ExpensesFile, DefinitionsFile, ExclusionsFile, ColorsFile}
 }

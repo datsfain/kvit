@@ -24,7 +24,6 @@ import (
 const (
 	clientID     = "203669531432-3i00dasn3vondekdoiqgcoo4caki2lcl.apps.googleusercontent.com"
 	clientSecret = "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" // Safe for desktop apps per Google OAuth docs
-	folderName   = "kvit"
 	authURL      = "https://accounts.google.com/o/oauth2/v2/auth"
 	tokenURL     = "https://oauth2.googleapis.com/token"
 )
@@ -137,6 +136,20 @@ func LinkFolder(folderURL string) error {
 // GetLinkedFolder returns the configured folder ID, if any
 func GetLinkedFolder() string {
 	return loadConfig().FolderID
+}
+
+// IsFolderLinked returns true if a Drive folder has been linked
+func IsFolderLinked() bool {
+	return GetLinkedFolder() != ""
+}
+
+// GetLinkedFolderID returns the linked folder ID or an error if none is configured
+func GetLinkedFolderID() (string, error) {
+	id := GetLinkedFolder()
+	if id == "" {
+		return "", fmt.Errorf("no folder linked")
+	}
+	return id, nil
 }
 
 func saveToken(token *oauth2.Token) error {
@@ -279,11 +292,22 @@ func exchangeCodePKCE(code, verifier, redirectURL string) (*oauth2.Token, error)
 		return nil, fmt.Errorf("token exchange failed (%d): %s", resp.StatusCode, string(body))
 	}
 
-	var token oauth2.Token
-	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
+	var result struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int    `json:"expires_in"`
+		TokenType    string `json:"token_type"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
-	return &token, nil
+
+	return &oauth2.Token{
+		AccessToken:  result.AccessToken,
+		RefreshToken: result.RefreshToken,
+		TokenType:    result.TokenType,
+		Expiry:       time.Now().Add(time.Duration(result.ExpiresIn) * time.Second),
+	}, nil
 }
 
 // Logout removes the stored token
@@ -359,43 +383,9 @@ func escapeQuery(s string) string {
 	return strings.ReplaceAll(s, "'", "\\'")
 }
 
-// getOrCreateFolder returns the linked folder ID, or finds/creates the "kvit" folder in Drive root
-func getOrCreateFolder(srv *drive.Service) (string, error) {
-	// Use linked folder if configured
-	if linked := GetLinkedFolder(); linked != "" {
-		return linked, nil
-	}
-
-	// Search for existing folder
-	q := fmt.Sprintf("name='%s' and mimeType='application/vnd.google-apps.folder' and trashed=false", escapeQuery(folderName))
-	list, err := srv.Files.List().Q(q).Fields("files(id, name)").Do()
-	if err != nil {
-		return "", fmt.Errorf("failed to search for folder: %w", err)
-	}
-	if len(list.Files) > 0 {
-		return list.Files[0].Id, nil
-	}
-
-	// Create folder
-	folder := &drive.File{
-		Name:     folderName,
-		MimeType: "application/vnd.google-apps.folder",
-	}
-	created, err := srv.Files.Create(folder).Fields("id").Do()
-	if err != nil {
-		return "", fmt.Errorf("failed to create folder: %w", err)
-	}
-	return created.Id, nil
-}
-
-// OpenFolder opens the kvit Drive folder in the browser
+// OpenFolder opens the linked Drive folder in the browser
 func OpenFolder() error {
-	srv, err := getService()
-	if err != nil {
-		return err
-	}
-
-	folderID, err := getOrCreateFolder(srv)
+	folderID, err := GetLinkedFolderID()
 	if err != nil {
 		return err
 	}
@@ -406,97 +396,146 @@ func OpenFolder() error {
 	return nil
 }
 
-// Push uploads local CSV files to Drive
-func Push(files []string) error {
-	srv, err := getService()
+// pushFile uploads a single file to Drive
+func pushFile(srv *drive.Service, filename, folderID string) error {
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return nil
+	}
+
+	f, err := os.Open(filename)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open %s: %w", filename, err)
 	}
+	defer f.Close()
 
-	folderID, err := getOrCreateFolder(srv)
+	q := fmt.Sprintf("name='%s' and '%s' in parents and trashed=false", escapeQuery(filename), escapeQuery(folderID))
+	list, err := srv.Files.List().Q(q).Fields("files(id)").Do()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to search for %s: %w", filename, err)
 	}
 
-	for _, filename := range files {
-		if _, err := os.Stat(filename); os.IsNotExist(err) {
-			continue
+	if len(list.Files) > 0 {
+		_, err = srv.Files.Update(list.Files[0].Id, &drive.File{MimeType: "text/csv"}).Media(f).Do()
+	} else {
+		driveFile := &drive.File{
+			Name:     filename,
+			MimeType: "text/csv",
+			Parents:  []string{folderID},
 		}
-
-		f, err := os.Open(filename)
-		if err != nil {
-			return fmt.Errorf("failed to open %s: %w", filename, err)
-		}
-
-		// Check if file exists in Drive folder
-		q := fmt.Sprintf("name='%s' and '%s' in parents and trashed=false", escapeQuery(filename), escapeQuery(folderID))
-		list, err := srv.Files.List().Q(q).Fields("files(id)").Do()
-		if err != nil {
-			f.Close()
-			return fmt.Errorf("failed to search for %s: %w", filename, err)
-		}
-
-		if len(list.Files) > 0 {
-			// Update existing
-			_, err = srv.Files.Update(list.Files[0].Id, &drive.File{MimeType: "text/csv"}).Media(f).Do()
-		} else {
-			// Create new
-			driveFile := &drive.File{
-				Name:     filename,
-				MimeType: "text/csv",
-				Parents:  []string{folderID},
-			}
-			_, err = srv.Files.Create(driveFile).Media(f).Do()
-		}
-		f.Close()
-
-		if err != nil {
-			return fmt.Errorf("failed to upload %s: %w", filename, err)
-		}
-		fmt.Printf("  ✓ %s\n", filename)
+		_, err = srv.Files.Create(driveFile).Media(f).Do()
 	}
-	return nil
+	return err
 }
 
-// Pull downloads CSV files from Drive to local
-func Pull(files []string) error {
+// pullFile downloads a single file from Drive. Returns true if downloaded.
+func pullFile(srv *drive.Service, filename, folderID string) (bool, error) {
+	q := fmt.Sprintf("name='%s' and '%s' in parents and trashed=false", escapeQuery(filename), escapeQuery(folderID))
+	list, err := srv.Files.List().Q(q).Fields("files(id)").Do()
+	if err != nil {
+		return false, fmt.Errorf("failed to search for %s: %w", filename, err)
+	}
+
+	if len(list.Files) == 0 {
+		return false, nil
+	}
+
+	resp, err := srv.Files.Get(list.Files[0].Id).Download()
+	if err != nil {
+		return false, fmt.Errorf("failed to download %s: %w", filename, err)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return false, fmt.Errorf("failed to read %s: %w", filename, err)
+	}
+
+	if err := os.WriteFile(filename, data, 0644); err != nil {
+		return false, fmt.Errorf("failed to write %s: %w", filename, err)
+	}
+	return true, nil
+}
+
+type syncResult struct {
+	filename string
+	ok       bool
+	err      error
+}
+
+// Push uploads local CSV files to Drive in parallel
+func Push(files []string) error {
+	folderID, err := GetLinkedFolderID()
+	if err != nil {
+		return err
+	}
+
+	// Show progress immediately, before authenticating
+	total := len(files) + 1 // +1 for auth step
+	PrintProgress(0, total, "connecting...")
+
 	srv, err := getService()
 	if err != nil {
+		fmt.Println()
 		return err
 	}
+	PrintProgress(1, total, "connected")
 
-	folderID, err := getOrCreateFolder(srv)
+	ch := make(chan syncResult, len(files))
+	for _, f := range files {
+		go func(filename string) {
+			err := pushFile(srv, filename, folderID)
+			ch <- syncResult{filename: filename, err: err}
+		}(f)
+	}
+
+	var firstErr error
+	for i := range files {
+		r := <-ch
+		if r.err != nil && firstErr == nil {
+			firstErr = r.err
+		}
+		PrintProgress(i+2, total, r.filename)
+	}
+	return firstErr
+}
+
+// Pull downloads CSV files from Drive to local in parallel. Returns count of files downloaded.
+func Pull(files []string) (int, error) {
+	folderID, err := GetLinkedFolderID()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	for _, filename := range files {
-		q := fmt.Sprintf("name='%s' and '%s' in parents and trashed=false", escapeQuery(filename), escapeQuery(folderID))
-		list, err := srv.Files.List().Q(q).Fields("files(id)").Do()
-		if err != nil {
-			return fmt.Errorf("failed to search for %s: %w", filename, err)
-		}
+	total := len(files) + 1
+	PrintProgress(0, total, "connecting...")
 
-		if len(list.Files) == 0 {
-			fmt.Printf("  - %s (not on Drive, skipping)\n", filename)
-			continue
-		}
-
-		resp, err := srv.Files.Get(list.Files[0].Id).Download()
-		if err != nil {
-			return fmt.Errorf("failed to download %s: %w", filename, err)
-		}
-
-		data, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			return fmt.Errorf("failed to read %s: %w", filename, err)
-		}
-
-		if err := os.WriteFile(filename, data, 0644); err != nil {
-			return fmt.Errorf("failed to write %s: %w", filename, err)
-		}
-		fmt.Printf("  ✓ %s\n", filename)
+	srv, err := getService()
+	if err != nil {
+		fmt.Println()
+		return 0, err
 	}
-	return nil
+	PrintProgress(1, total, "connected")
+
+	ch := make(chan syncResult, len(files))
+	for _, f := range files {
+		go func(filename string) {
+			ok, err := pullFile(srv, filename, folderID)
+			ch <- syncResult{filename: filename, ok: ok, err: err}
+		}(f)
+	}
+
+	downloaded := 0
+	var firstErr error
+	for i := range files {
+		r := <-ch
+		if r.err != nil {
+			if firstErr == nil {
+				firstErr = r.err
+			}
+		} else if r.ok {
+			downloaded++
+		}
+		PrintProgress(i+2, total, r.filename)
+	}
+	return downloaded, firstErr
 }

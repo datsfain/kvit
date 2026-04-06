@@ -167,6 +167,32 @@ func RemoveExclusion(product string) error {
 	return nil
 }
 
+// LoadColors reads category->color mappings from CSV
+func LoadColors() map[string]string {
+	f, err := os.Open(config.ColorsPath())
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(f)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil
+	}
+
+	colors := make(map[string]string)
+	for i, row := range records {
+		if i == 0 {
+			continue
+		}
+		if len(row) >= 2 {
+			colors[row[0]] = row[1]
+		}
+	}
+	return colors
+}
+
 // AppendDefinitions adds new product->category mappings
 func AppendDefinitions(defs []models.Definition) error {
 	fileExists := true
