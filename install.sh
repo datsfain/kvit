@@ -83,6 +83,26 @@ chmod +x "$INSTALL_DIR/kvit"
 # Cleanup
 rm -rf "$TMP"
 
+# Install shell completions
+COMP_DIR=""
+if [ -d "/usr/share/bash-completion/completions" ]; then
+  COMP_DIR="/usr/share/bash-completion/completions"
+elif [ -d "/etc/bash_completion.d" ]; then
+  COMP_DIR="/etc/bash_completion.d"
+fi
+
+if [ -n "$COMP_DIR" ]; then
+  echo "Installing shell completions..."
+  COMP_SCRIPT=$("$INSTALL_DIR/kvit" completion bash 2>/dev/null || true)
+  if [ -n "$COMP_SCRIPT" ]; then
+    if [ -w "$COMP_DIR" ]; then
+      echo "$COMP_SCRIPT" > "$COMP_DIR/kvit"
+    else
+      echo "$COMP_SCRIPT" | sudo tee "$COMP_DIR/kvit" > /dev/null
+    fi
+  fi
+fi
+
 # Verify
 if command -v kvit &> /dev/null; then
   echo ""

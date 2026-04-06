@@ -3,10 +3,49 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
 
 	"github.com/creativeprojects/go-selfupdate"
 	"github.com/spf13/cobra"
 )
+
+// installCompletions writes shell completions to the system directory.
+// Called after install/update so tab-completion works automatically.
+func installCompletions() {
+	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
+		return
+	}
+
+	dirs := []string{"/usr/share/bash-completion/completions", "/etc/bash_completion.d"}
+	var dir string
+	for _, d := range dirs {
+		if info, err := os.Stat(d); err == nil && info.IsDir() {
+			dir = d
+			break
+		}
+	}
+	if dir == "" {
+		return
+	}
+
+	path := filepath.Join(dir, "kvit")
+	// Try direct write first, fall back to sudo
+	if err := os.WriteFile(path, []byte(completionScript()), 0644); err != nil {
+		cmd := exec.Command("sudo", "tee", path)
+		cmd.Stdin = strings.NewReader(completionScript())
+		cmd.Stdout = nil
+		cmd.Run()
+	}
+}
+
+func completionScript() string {
+	buf := new(strings.Builder)
+	rootCmd.GenBashCompletionV2(buf, true)
+	return buf.String()
+}
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
@@ -62,5 +101,6 @@ func runUpdate(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	installCompletions()
 	fmt.Printf("✓ Updated to %s (checksum verified)\n", latest.Version())
 }
