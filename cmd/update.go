@@ -22,7 +22,15 @@ func runUpdate(cmd *cobra.Command, args []string) {
 	fmt.Printf("Current version: %s\n", Version)
 	fmt.Println("Checking for updates...")
 
-	latest, found, err := selfupdate.DetectLatest(cmd.Context(), selfupdate.ParseSlug("datsfain/kvit"))
+	updater, err := selfupdate.NewUpdater(selfupdate.Config{
+		Validator: &selfupdate.ChecksumValidator{UniqueFilename: "checksums.txt"},
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating updater: %v\n", err)
+		os.Exit(1)
+	}
+
+	latest, found, err := updater.DetectLatest(cmd.Context(), selfupdate.ParseSlug("datsfain/kvit"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error checking for updates: %v\n", err)
 		os.Exit(1)
@@ -32,7 +40,7 @@ func runUpdate(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	if latest.LessOrEqual(Version) {
+	if Version != "dev" && latest.LessOrEqual(Version) {
 		fmt.Printf("Already up to date (latest: %s)\n", latest.Version())
 		return
 	}
@@ -45,7 +53,7 @@ func runUpdate(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	if err := selfupdate.UpdateTo(cmd.Context(), latest.AssetURL, latest.AssetName, exe); err != nil {
+	if err := updater.UpdateTo(cmd.Context(), latest, exe); err != nil {
 		if os.IsPermission(err) {
 			fmt.Fprintf(os.Stderr, "Error: permission denied. Try: sudo kvit update\n")
 		} else {
@@ -54,5 +62,5 @@ func runUpdate(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("✓ Updated to %s\n", latest.Version())
+	fmt.Printf("✓ Updated to %s (checksum verified)\n", latest.Version())
 }

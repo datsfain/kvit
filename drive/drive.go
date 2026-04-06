@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -36,13 +37,18 @@ var oauthConfig = &oauth2.Config{
 	},
 }
 
-// PKCE helpers
-func generateCodeVerifier() (string, error) {
-	b := make([]byte, 32)
+// generateRandomString creates a cryptographically random base64url string
+func generateRandomString(n int) (string, error) {
+	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// PKCE helpers
+func generateCodeVerifier() (string, error) {
+	return generateRandomString(32)
 }
 
 func generateCodeChallenge(verifier string) string {
@@ -99,6 +105,12 @@ func Auth() error {
 	}
 	challenge := generateCodeChallenge(verifier)
 
+	// Generate random state for CSRF protection
+	state, err := generateRandomString(16)
+	if err != nil {
+		return fmt.Errorf("failed to generate state: %w", err)
+	}
+
 	// Start local server to receive callback
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -113,6 +125,11 @@ func Auth() error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("state") != state {
+			errCh <- fmt.Errorf("invalid state parameter (possible CSRF)")
+			fmt.Fprint(w, "<html><body><h2>Error: invalid state parameter.</h2></body></html>")
+			return
+		}
 		code := r.URL.Query().Get("code")
 		if code == "" {
 			errCh <- fmt.Errorf("no code in callback")
@@ -127,13 +144,14 @@ func Auth() error {
 	go server.Serve(listener)
 	defer server.Close()
 
-	// Build auth URL with PKCE parameters
-	authRequestURL := fmt.Sprintf("%s?client_id=%s&redirect_uri=%s&response_type=code&scope=%s&access_type=offline&prompt=consent&code_challenge=%s&code_challenge_method=S256",
+	// Build auth URL with PKCE parameters and state
+	authRequestURL := fmt.Sprintf("%s?client_id=%s&redirect_uri=%s&response_type=code&scope=%s&access_type=offline&prompt=consent&code_challenge=%s&code_challenge_method=S256&state=%s",
 		authURL,
 		url.QueryEscape(clientID),
 		url.QueryEscape(redirectURL),
 		url.QueryEscape(drive.DriveFileScope),
 		url.QueryEscape(challenge),
+		url.QueryEscape(state),
 	)
 
 	fmt.Println("Opening browser for Google sign-in...")
@@ -261,10 +279,15 @@ func getService() (*drive.Service, error) {
 	return drive.NewService(context.Background(), option.WithTokenSource(oauth2.StaticTokenSource(token)))
 }
 
+// escapeQuery escapes single quotes for Google Drive API queries
+func escapeQuery(s string) string {
+	return strings.ReplaceAll(s, "'", "\\'")
+}
+
 // getOrCreateFolder finds or creates the "kvit" folder in Drive root
 func getOrCreateFolder(srv *drive.Service) (string, error) {
 	// Search for existing folder
-	q := fmt.Sprintf("name='%s' and mimeType='application/vnd.google-apps.folder' and trashed=false", folderName)
+	q := fmt.Sprintf("name='%s' and mimeType='application/vnd.google-apps.folder' and trashed=false", escapeQuery(folderName))
 	list, err := srv.Files.List().Q(q).Fields("files(id, name)").Do()
 	if err != nil {
 		return "", fmt.Errorf("failed to search for folder: %w", err)
@@ -308,7 +331,7 @@ func Push(files []string) error {
 		}
 
 		// Check if file exists in Drive folder
-		q := fmt.Sprintf("name='%s' and '%s' in parents and trashed=false", filename, folderID)
+		q := fmt.Sprintf("name='%s' and '%s' in parents and trashed=false", escapeQuery(filename), escapeQuery(folderID))
 		list, err := srv.Files.List().Q(q).Fields("files(id)").Do()
 		if err != nil {
 			f.Close()
@@ -349,7 +372,7 @@ func Pull(files []string) error {
 	}
 
 	for _, filename := range files {
-		q := fmt.Sprintf("name='%s' and '%s' in parents and trashed=false", filename, folderID)
+		q := fmt.Sprintf("name='%s' and '%s' in parents and trashed=false", escapeQuery(filename), escapeQuery(folderID))
 		list, err := srv.Files.List().Q(q).Fields("files(id)").Do()
 		if err != nil {
 			return fmt.Errorf("failed to search for %s: %w", filename, err)

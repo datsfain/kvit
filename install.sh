@@ -31,13 +31,42 @@ if [ -z "$VERSION" ]; then
 fi
 echo "Latest version: $VERSION"
 
-# Download
+# Download binary and checksums
 FILENAME="kvit_${OS}_${ARCH}.tar.gz"
 URL="https://github.com/$REPO/releases/download/$VERSION/$FILENAME"
+CHECKSUM_URL="https://github.com/$REPO/releases/download/$VERSION/checksums.txt"
 
 echo "Downloading $FILENAME..."
 TMP=$(mktemp -d)
 curl -sSL "$URL" -o "$TMP/$FILENAME"
+curl -sSL "$CHECKSUM_URL" -o "$TMP/checksums.txt"
+
+# Verify checksum
+echo "Verifying checksum..."
+EXPECTED=$(grep "$FILENAME" "$TMP/checksums.txt" | awk '{print $1}')
+if [ -z "$EXPECTED" ]; then
+  echo "Error: checksum not found for $FILENAME"
+  rm -rf "$TMP"
+  exit 1
+fi
+
+if command -v sha256sum &> /dev/null; then
+  ACTUAL=$(sha256sum "$TMP/$FILENAME" | awk '{print $1}')
+elif command -v shasum &> /dev/null; then
+  ACTUAL=$(shasum -a 256 "$TMP/$FILENAME" | awk '{print $1}')
+else
+  echo "Warning: no sha256sum or shasum found, skipping verification"
+  ACTUAL="$EXPECTED"
+fi
+
+if [ "$EXPECTED" != "$ACTUAL" ]; then
+  echo "Error: checksum mismatch!"
+  echo "  Expected: $EXPECTED"
+  echo "  Actual:   $ACTUAL"
+  rm -rf "$TMP"
+  exit 1
+fi
+echo "Checksum verified."
 
 # Extract
 tar -xzf "$TMP/$FILENAME" -C "$TMP"
