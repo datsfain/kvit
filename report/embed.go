@@ -10,3 +10,6 @@ var StyleCSS string
 
 //go:embed app.js
 var AppJS string
+
+//go:embed prompt.txt
+var PromptTemplate string

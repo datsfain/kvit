@@ -16,7 +16,10 @@ mkdir ~/expenses && cd ~/expenses
 kvit add netto ground-beef:39.95 milk:12.50 bread:22    # add expenses
 kvit i                                                    # or use interactive mode
 kvit summary                                              # view spending report
+kvit sync push                                            # sync to Google Drive
 ```
+
+All sync commands guide you through sign-in and folder setup on first use — no manual setup needed.
 
 ## Scan receipts with AI
 
@@ -24,18 +27,18 @@ kvit summary                                              # view spending report
 kvit prompt        # copies an AI prompt to your clipboard
 ```
 
-Paste the prompt + a photo of your receipt into [Gemini](https://gemini.google.com) or ChatGPT. The AI reads the receipt (even in Danish) and generates a `kvit add` command you can paste and run.
+Paste the prompt into any AI assistant (Gemini, ChatGPT, Claude, etc.) along with one or more photos of your receipts. The AI reads them (even in Danish) and generates a ready-to-run `kvit add` command.
 
 ## Sync with Google Drive
 
 ```bash
-kvit sync link     # link to a Google Drive folder (one-time setup)
 kvit sync push     # upload data
 kvit sync pull     # download data
 kvit sync open     # open folder in browser
+kvit sync link     # link to a different folder
 ```
 
-Create a folder on Google Drive, run `kvit sync link`, and paste the URL. kvit will prompt you to sign in and link a folder if you haven't yet.
+On first use, `push` or `pull` will prompt you to sign in and link a Google Drive folder — just follow the prompts. You can also set up manually with `kvit auth` and `kvit sync link`.
 
 ## All commands
 
@@ -45,7 +48,7 @@ Create a folder on Google Drive, run `kvit sync link`, and paste the URL. kvit w
 | `kvit i` | Interactive mode with autocomplete and date picker. |
 | `kvit summary` | Generate an interactive HTML spending report. |
 | `kvit prompt` | Copy an AI receipt-scanning prompt to clipboard. |
-| `kvit sync link/push/pull/open` | Google Drive sync. |
+| `kvit sync push/pull/open/link` | Google Drive sync. |
 | `kvit auth` | Sign in with Google. `--force` to re-auth, `logout` to sign out. |
 | `kvit exclude add/remove/list` | Control which products appear in the AI prompt. |
 | `kvit update` | Update kvit to the latest version. |
@@ -54,9 +57,8 @@ Create a folder on Google Drive, run `kvit sync link`, and paste the URL. kvit w
 
 `kvit summary` generates an interactive HTML report with:
 - Spending by category and store (pie + bar charts)
-- Daily and weekly/monthly trends
-- Drill-down from category to individual products
-- Sortable, searchable expense table
+- Daily and weekly/monthly trends with category drill-down
+- Sortable, searchable expense table with expandable categories
 - Date range presets (this month, last 3 months, etc.)
 - Customizable category colors — pick colors in the report and save `colors.csv`
 
@@ -77,17 +79,22 @@ Open any CSV in Google Sheets for viewing, editing, or building charts.
 
 Share expenses with family through a shared Google Drive folder.
 
-**Owner:**
+**Owner setup:**
 ```bash
-kvit sync link             # link your Drive folder
-kvit sync push             # upload data
-kvit sync open             # share the folder with family
+kvit sync push             # uploads data (prompts to sign in and link folder on first use)
+kvit sync open             # open folder in browser, then share it with family
 ```
 
-**Family member:**
+**Family member — quick setup:**
 ```bash
 curl -sSL https://raw.githubusercontent.com/datsfain/kvit/main/install.sh | bash
 mkdir ~/expenses && cd ~/expenses
+kvit sync pull             # prompts to sign in, then paste the shared folder URL
+```
+
+**Family member — manual setup:**
+```bash
+kvit auth                  # sign in with Google
 kvit sync link             # paste the shared folder URL
 kvit sync pull             # download data
 ```
