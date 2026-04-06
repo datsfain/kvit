@@ -1,0 +1,19 @@
+package drive
+
+import (
+	"os/exec"
+	"runtime"
+)
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	default:
+		return
+	}
+	cmd.Start()
+}

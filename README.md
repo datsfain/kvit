@@ -25,11 +25,17 @@ sudo apt install wl-clipboard
 ```bash
 mkdir ~/expenses && cd ~/expenses
 
+# Sign in with Google for Drive sync
+kvit auth
+
 # Add your first expenses
 kvit add netto ground-beef:39.95 milk:12.50 bread:22
 
 # Or use the interactive mode
 kvit i
+
+# Sync to Google Drive
+kvit sync push
 ```
 
 ## How it works with AI
@@ -77,6 +83,16 @@ kvit exclude remove shoes       # show again
 kvit exclude list               # see all exclusions
 ```
 
+### `kvit auth` — Sign in with Google
+
+```bash
+kvit auth              # opens browser for Google sign-in
+kvit auth --force      # re-authenticate
+kvit auth logout       # remove stored credentials
+```
+
+Opens your browser, you sign in with Google, and kvit stores a token locally at `~/.config/kvit/token.json`. kvit only requests access to files it creates — it cannot see any other files on your Drive.
+
 ### `kvit sync` — Sync with Google Drive
 
 ```bash
@@ -84,15 +100,9 @@ kvit sync push   # upload local CSVs to Google Drive (overwrites remote)
 kvit sync pull   # download from Google Drive to local (overwrites local)
 ```
 
-Requires [rclone](https://rclone.org). See [Google Drive setup](#google-drive-setup) below.
+Files are stored in a `kvit` folder on your Google Drive. Open [Google Drive](https://drive.google.com), navigate to the `kvit` folder, and double-click any CSV to view or edit it in Google Sheets.
 
-### `kvit config` — Manage settings
-
-```bash
-kvit config set remote "gdrive:kvit"   # set rclone remote path
-kvit config get remote                  # show current value
-kvit config show                        # show all settings
-```
+`push` overwrites remote, `pull` overwrites local — always pick the right direction.
 
 ### `kvit update` — Self-update
 
@@ -125,59 +135,4 @@ product
 shoes
 ```
 
-**`kvit.json`** — local config (rclone remote path).
-
 These CSVs are designed to be opened directly in Google Sheets for viewing, editing, or building charts.
-
-## Google Drive setup
-
-kvit uses [rclone](https://rclone.org) to sync files with Google Drive.
-
-### 1. Install rclone
-
-```bash
-# macOS
-brew install rclone
-
-# Linux
-sudo apt install rclone
-```
-
-### 2. Configure Google Drive
-
-```bash
-rclone config
-```
-
-Follow the prompts:
-1. `n` — New remote
-2. Name it `gdrive`
-3. Choose `Google Drive`
-4. Leave client_id and client_secret blank
-5. Scope: `1` (Full access)
-6. Leave remaining fields blank
-7. `y` — Auto config (opens a browser to sign in with your Google account)
-8. Confirm
-
-Verify it works:
-```bash
-rclone ls gdrive:
-```
-
-### 3. Create a folder and configure kvit
-
-```bash
-rclone mkdir gdrive:kvit
-kvit config set remote "gdrive:kvit"
-```
-
-### 4. Sync your data
-
-```bash
-kvit sync push   # after adding expenses
-kvit sync pull   # on a new machine
-```
-
-### 5. View in Google Sheets
-
-Open [Google Drive](https://drive.google.com), navigate to the `kvit` folder, and double-click any CSV to open it in Google Sheets. You can edit cells directly — just `kvit sync pull` to get the changes locally.
