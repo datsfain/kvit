@@ -438,12 +438,13 @@ func Push(files []string) error {
 
 		if len(list.Files) > 0 {
 			// Update existing
-			_, err = srv.Files.Update(list.Files[0].Id, &drive.File{}).Media(f).Do()
+			_, err = srv.Files.Update(list.Files[0].Id, &drive.File{MimeType: "text/csv"}).Media(f).Do()
 		} else {
 			// Create new
 			driveFile := &drive.File{
-				Name:    filename,
-				Parents: []string{folderID},
+				Name:     filename,
+				MimeType: "text/csv",
+				Parents:  []string{folderID},
 			}
 			_, err = srv.Files.Create(driveFile).Media(f).Do()
 		}
