@@ -137,7 +137,11 @@ kvit sync pull    # on a new machine to get your data
 
 ## Install
 
-Download the latest binary from [Releases](https://github.com/datsfain/kvit/releases) and place it in your PATH.
+```bash
+curl -sSL https://raw.githubusercontent.com/datsfain/kvit/main/install.sh | bash
+```
+
+Or download manually from [Releases](https://github.com/datsfain/kvit/releases).
 
 ## Currency
 
