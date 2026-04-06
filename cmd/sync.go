@@ -50,9 +50,22 @@ var syncPullCmd = &cobra.Command{
 	},
 }
 
+var syncOpenCmd = &cobra.Command{
+	Use:   "open",
+	Short: "Open the kvit folder on Google Drive in your browser",
+	Run: func(cmd *cobra.Command, args []string) {
+		ensureAuth()
+		if err := drive.OpenFolder(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
 func init() {
 	syncCmd.AddCommand(syncPushCmd)
 	syncCmd.AddCommand(syncPullCmd)
+	syncCmd.AddCommand(syncOpenCmd)
 	rootCmd.AddCommand(syncCmd)
 }
 

@@ -311,6 +311,24 @@ func getOrCreateFolder(srv *drive.Service) (string, error) {
 	return created.Id, nil
 }
 
+// OpenFolder opens the kvit Drive folder in the browser
+func OpenFolder() error {
+	srv, err := getService()
+	if err != nil {
+		return err
+	}
+
+	folderID, err := getOrCreateFolder(srv)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("https://drive.google.com/drive/folders/%s", folderID)
+	fmt.Printf("Opening %s\n", url)
+	openBrowser(url)
+	return nil
+}
+
 // Push uploads local CSV files to Drive
 func Push(files []string) error {
 	srv, err := getService()
