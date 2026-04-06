@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"kvit/config"
 	"kvit/models"
 	"kvit/report"
 	"kvit/storage"
@@ -38,6 +39,8 @@ func runPrompt(cmd *cobra.Command, args []string) {
 	prompt = strings.Replace(prompt, "{{TODAY}}", models.Today(), 1)
 	prompt = strings.Replace(prompt, "{{PRODUCTS}}", strings.Join(filteredProducts, ", "), 1)
 	prompt = strings.Replace(prompt, "{{STORES}}", strings.Join(stores, ", "), 1)
+	prompt = strings.ReplaceAll(prompt, "{{CURRENCY}}", config.Currency())
+	prompt = strings.Replace(prompt, "{{LANGUAGES}}", strings.Join(config.Languages(), ", "), 1)
 
 	err := clipboard.WriteAll(prompt)
 	if err != nil {

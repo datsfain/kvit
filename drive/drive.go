@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"kvit/config"
 	"net"
 	"net/http"
 	"net/url"
@@ -56,44 +57,8 @@ func generateCodeChallenge(verifier string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
-func configDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "."
-	}
-	dir := filepath.Join(home, ".config", "kvit")
-	os.MkdirAll(dir, 0700)
-	return dir
-}
-
 func tokenPath() string {
-	return filepath.Join(configDir(), "token.json")
-}
-
-func configPath() string {
-	return filepath.Join(configDir(), "config.json")
-}
-
-type kvitConfig struct {
-	FolderID string `json:"folder_id,omitempty"`
-}
-
-func loadConfig() kvitConfig {
-	var c kvitConfig
-	data, err := os.ReadFile(configPath())
-	if err != nil {
-		return c
-	}
-	json.Unmarshal(data, &c)
-	return c
-}
-
-func saveConfig(c kvitConfig) error {
-	data, err := json.MarshalIndent(c, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(configPath(), data, 0600)
+	return filepath.Join(config.ConfigDir(), "token.json")
 }
 
 // LinkFolder saves a shared folder ID for syncing
@@ -123,9 +88,9 @@ func LinkFolder(folderURL string) error {
 		return fmt.Errorf("cannot access folder: %w\nMake sure the folder is shared with your Google account", err)
 	}
 
-	c := loadConfig()
+	c := config.Load()
 	c.FolderID = id
-	if err := saveConfig(c); err != nil {
+	if err := config.Save(c); err != nil {
 		return err
 	}
 
@@ -135,7 +100,7 @@ func LinkFolder(folderURL string) error {
 
 // GetLinkedFolder returns the configured folder ID, if any
 func GetLinkedFolder() string {
-	return loadConfig().FolderID
+	return config.Load().FolderID
 }
 
 // IsFolderLinked returns true if a Drive folder has been linked

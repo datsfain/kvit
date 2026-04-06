@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"kvit/config"
 	"kvit/models"
 	"kvit/storage"
 	"os"
@@ -298,7 +299,7 @@ func (m interactiveModel) View() string {
 		b.WriteString(storeStyle.Render(fmt.Sprintf("  Store: %s", entry.Store)) + "\n")
 		for _, p := range entry.Products {
 			b.WriteString(itemStyle.Render(fmt.Sprintf("    + %-20s", p.Product)) +
-				priceStyle.Render(fmt.Sprintf("%10.2f DKK", p.Price)) + "\n")
+				priceStyle.Render(fmt.Sprintf("%10.2f %s", p.Price, config.Currency())) + "\n")
 		}
 		b.WriteString("\n")
 	}
@@ -308,7 +309,7 @@ func (m interactiveModel) View() string {
 		b.WriteString(storeStyle.Render(fmt.Sprintf("  Store: %s", m.currentStore)) + "\n")
 		for _, p := range m.currentItems {
 			b.WriteString(itemStyle.Render(fmt.Sprintf("    + %-20s", p.Product)) +
-				priceStyle.Render(fmt.Sprintf("%10.2f DKK", p.Price)) + "\n")
+				priceStyle.Render(fmt.Sprintf("%10.2f %s", p.Price, config.Currency())) + "\n")
 		}
 	}
 

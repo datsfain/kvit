@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"kvit/config"
 	"kvit/report"
 	"kvit/storage"
 	"os"
@@ -25,9 +26,10 @@ func init() {
 }
 
 type reportData struct {
-	Expenses    []expenseJSON    `json:"expenses"`
-	Definitions []definitionJSON `json:"definitions"`
+	Expenses    []expenseJSON     `json:"expenses"`
+	Definitions []definitionJSON  `json:"definitions"`
 	Colors      map[string]string `json:"colors"`
+	Currency    string            `json:"currency"`
 }
 
 type expenseJSON struct {
@@ -58,6 +60,7 @@ func runSummary(cmd *cobra.Command, args []string) {
 
 	var data reportData
 	data.Colors = colors
+	data.Currency = config.Currency()
 	for _, e := range expenses {
 		data.Expenses = append(data.Expenses, expenseJSON{
 			Date: e.Date, Store: e.Store, Product: e.Product, Price: e.Price,
@@ -79,6 +82,7 @@ func runSummary(cmd *cobra.Command, args []string) {
 	html := report.TemplateHTML
 	html = strings.Replace(html, "{{CSS}}", report.StyleCSS, 1)
 	html = strings.Replace(html, "{{DATA}}", string(jsonBytes), 1)
+	html = strings.Replace(html, "{{CURRENCY}}", config.Currency(), 1)
 	html = strings.Replace(html, "{{JS}}", report.AppJS, 1)
 
 	outPath, _ := filepath.Abs("kvit-report.html")

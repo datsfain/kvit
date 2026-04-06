@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"kvit/config"
 	"kvit/models"
 	"kvit/storage"
 	"os"
@@ -78,14 +79,14 @@ func (m confirmModel) View() string {
 		subtotal := 0.0
 		for _, p := range sorted {
 			b.WriteString(fmt.Sprintf("    %-20s", p.Product) +
-				priceStyle.Render(fmt.Sprintf("%10.2f DKK", p.Price)) + "\n")
+				priceStyle.Render(fmt.Sprintf("%10.2f %s", p.Price, config.Currency())) + "\n")
 			subtotal += p.Price
 		}
-		b.WriteString(totalStyle.Render(fmt.Sprintf("    %-20s %10.2f DKK", "Subtotal:", subtotal)) + "\n")
+		b.WriteString(totalStyle.Render(fmt.Sprintf("    %-20s %10.2f %s", "Subtotal:", subtotal, config.Currency())) + "\n")
 		grandTotal += subtotal
 	}
 
-	b.WriteString("\n" + totalStyle.Render(fmt.Sprintf("  %-22s %10.2f DKK", "Total:", grandTotal)) + "\n")
+	b.WriteString("\n" + totalStyle.Render(fmt.Sprintf("  %-22s %10.2f %s", "Total:", grandTotal, config.Currency())) + "\n")
 	b.WriteString(headerStyle.Render("──────────────────────────────────────────") + "\n\n")
 
 	b.WriteString(m.textInput.View())

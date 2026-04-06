@@ -27,7 +27,7 @@ All sync commands guide you through sign-in and folder setup on first use — no
 kvit prompt        # copies an AI prompt to your clipboard
 ```
 
-Paste the prompt into any AI assistant (Gemini, ChatGPT, Claude, etc.) along with one or more photos of your receipts. The AI reads them (even in Danish) and generates a ready-to-run `kvit add` command.
+Paste the prompt into any AI assistant (Gemini, ChatGPT, Claude, etc.) along with one or more photos of your receipts. The AI reads them in your language and generates a ready-to-run `kvit add` command.
 
 ## Sync with Google Drive
 

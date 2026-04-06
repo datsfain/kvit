@@ -54,7 +54,7 @@ const dkkTooltip = {
     label: ctx => {
       const val = ctx.parsed.y ?? ctx.parsed;
       const prefix = ctx.dataset?.label ? ctx.dataset.label + ': ' : (ctx.label ? ctx.label + ': ' : '');
-      return prefix + val.toFixed(2) + ' DKK';
+      return prefix + val.toFixed(2) + ' ' + DATA.currency;
     }
   }
 };
@@ -69,7 +69,7 @@ function stackedBarConfig(extra = {}) {
     },
     scales: {
       x: { stacked: true, ticks: { color: '#8b949e' }, grid: { display: false } },
-      y: { stacked: true, ticks: { color: '#8b949e', callback: v => v + ' DKK' }, grid: { color: '#21262d' } }
+      y: { stacked: true, ticks: { color: '#8b949e', callback: v => v + ' ' + DATA.currency }, grid: { color: '#21262d' } }
     }
   };
 }
@@ -150,7 +150,8 @@ function initPresets() {
 // ── Toggle helpers ──
 
 function setToggleActive(groupAttr, value) {
-  document.querySelectorAll('[data-' + groupAttr + ']').forEach(b => {
+  const kebab = groupAttr.replace(/([A-Z])/g, '-$1').toLowerCase();
+  document.querySelectorAll('[data-' + kebab + ']').forEach(b => {
     b.classList.toggle('active', b.dataset[groupAttr] === value);
   });
 }
@@ -197,10 +198,10 @@ function updateStats(data) {
   Object.entries(prodTotals).forEach(([p, t]) => { if (t > maxProdTotal) { maxProd = p; maxProdTotal = t; }});
 
   document.getElementById('stats').innerHTML =
-    statCard('Total Spent', total.toFixed(2), 'DKK', '', true) +
-    statCard('Avg / Day', avgDay.toFixed(2), 'DKK', days + ' days') +
-    statCard('Most Expensive Day', maxDayTotal.toFixed(2), 'DKK', maxDay) +
-    statCard('Top Product', maxProdTotal.toFixed(2), 'DKK', maxProd);
+    statCard('Total Spent', total.toFixed(2), DATA.currency, '', true) +
+    statCard('Avg / Day', avgDay.toFixed(2), DATA.currency, days + ' days') +
+    statCard('Most Expensive Day', maxDayTotal.toFixed(2), DATA.currency, maxDay) +
+    statCard('Top Product', maxProdTotal.toFixed(2), DATA.currency, maxProd);
 }
 
 function statCard(label, value, unit, detail, hero) {
@@ -268,7 +269,7 @@ function updateStoreBar(data) {
       plugins: { legend: { display: false }, tooltip: dkkTooltip },
       scales: {
         x: { ticks: { color: '#8b949e' }, grid: { display: false } },
-        y: { ticks: { color: '#8b949e', callback: v => v + ' DKK' }, grid: { color: '#21262d' } }
+        y: { ticks: { color: '#8b949e', callback: v => v + ' ' + DATA.currency }, grid: { color: '#21262d' } }
       }
     }
   });
@@ -295,7 +296,7 @@ function updateDailyLine(data) {
       plugins: { legend: { display: false }, tooltip: dkkTooltip },
       scales: {
         x: { ticks: { color: '#8b949e', maxTicksLimit: 15 }, grid: { color: '#21262d' } },
-        y: { ticks: { color: '#8b949e', callback: v => v + ' DKK' }, grid: { color: '#21262d' } }
+        y: { ticks: { color: '#8b949e', callback: v => v + ' ' + DATA.currency }, grid: { color: '#21262d' } }
       }
     }
   });
