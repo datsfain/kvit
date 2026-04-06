@@ -124,6 +124,7 @@ function getColorForCat(name) {
 const state = {
   charts: {},
   pieMode: 'category',
+  pieLimit: 10,
   tableMode: 'category',
   tableSortCol: 'total',
   tableSortAsc: false,
@@ -227,10 +228,17 @@ function statCard(label, value, unit, detail, hero) {
 
 // ── Pie chart ──
 
+function setPieLimit(n) {
+  state.pieLimit = n;
+  setToggleActive('pieLimit', String(n));
+  updatePieChart(state.filtered);
+}
+
 function setPieMode(mode) {
   state.pieMode = mode;
   setToggleActive('pieMode', mode);
   document.getElementById('pieTitle').textContent = mode === 'category' ? 'Spending by Category' : 'Spending by Product';
+  document.getElementById('pieLimitGroup').style.display = mode === 'product' ? '' : 'none';
   updatePieChart(state.filtered);
 }
 
@@ -239,9 +247,10 @@ function updatePieChart(data) {
   const entries = Object.entries(grouped).sort((a, b) => b[1] - a[1]);
 
   let labels, values;
-  if (state.pieMode === 'product' && entries.length > 10) {
-    const top = entries.slice(0, 10);
-    const otherTotal = entries.slice(10).reduce((s, e) => s + e[1], 0);
+  const limit = state.pieLimit || 10;
+  if (state.pieMode === 'product' && entries.length > limit) {
+    const top = entries.slice(0, limit);
+    const otherTotal = entries.slice(limit).reduce((s, e) => s + e[1], 0);
     labels = top.map(e => e[0]).concat(['other']);
     values = top.map(e => round2(e[1])).concat([round2(otherTotal)]);
   } else {
@@ -563,6 +572,7 @@ function closeProductDetail() {
   document.getElementById('productDetail').style.display = 'none';
 }
 window.closeProductDetail = closeProductDetail;
+window.setPieLimit = setPieLimit;
 
 // ── Event listeners ──
 

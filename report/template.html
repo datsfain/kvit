@@ -48,6 +48,13 @@
         <button class="toggle-btn" data-pie-mode="product" onclick="setPieMode('product')">Product</button>
       </span>
     </h3>
+    <div id="pieLimitGroup" style="display:none;margin-bottom:12px">
+      <span class="toggle-group">
+        <button class="toggle-btn active" data-pie-limit="10" onclick="setPieLimit(10)">Top 10</button>
+        <button class="toggle-btn" data-pie-limit="20" onclick="setPieLimit(20)">Top 20</button>
+        <button class="toggle-btn" data-pie-limit="50" onclick="setPieLimit(50)">Top 50</button>
+      </span>
+    </div>
     <canvas id="categoryPie"></canvas>
   </div>
   <div class="chart-card">
