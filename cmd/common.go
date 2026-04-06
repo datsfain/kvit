@@ -218,27 +218,38 @@ func (m catModel) View() string {
 
 	var b strings.Builder
 
-	b.WriteString(warnStyle.Render("⚠ Categorize new products:") + "\n\n")
+	b.WriteString(headerStyle.Render("─── Categorize new products ───") + "\n\n")
+
+	// Show existing categories prominently
+	if len(m.categories) > 0 {
+		b.WriteString(labelStyle.Render("  Available categories:") + "\n")
+		for _, c := range m.categories {
+			b.WriteString(storeStyle.Render(fmt.Sprintf("    %s", c)) + "\n")
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString(headerStyle.Render("  ──────────────────────────") + "\n\n")
 
 	// Show already categorized
 	for _, d := range m.results {
-		b.WriteString(itemStyle.Render(fmt.Sprintf("  %-20s → ", d.Product)) +
+		b.WriteString(successStyle.Render("  ✓ ") +
+			fmt.Sprintf("%-20s → ", d.Product) +
 			successStyle.Render(d.Category) + "\n")
 	}
 
-	// Show remaining
-	for i := m.current + 1; i < len(m.unknown); i++ {
-		b.WriteString(itemStyle.Render(fmt.Sprintf("  %-20s   ?", m.unknown[i])) + "\n")
-	}
-
+	// Current product being categorized
+	b.WriteString("\n")
+	b.WriteString(m.textInput.View())
 	b.WriteString("\n")
 
-	// Show existing categories as hint
-	if len(m.categories) > 0 {
-		b.WriteString(hintStyle.Render("  Categories: "+strings.Join(m.categories, ", ")) + "\n")
+	// Show remaining
+	if m.current+1 < len(m.unknown) {
+		b.WriteString("\n" + hintStyle.Render("  Remaining:") + "\n")
+		for i := m.current + 1; i < len(m.unknown); i++ {
+			b.WriteString(hintStyle.Render(fmt.Sprintf("    %s", m.unknown[i])) + "\n")
+		}
 	}
-
-	b.WriteString(m.textInput.View())
 
 	return b.String()
 }
