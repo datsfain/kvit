@@ -9,8 +9,10 @@
 </head>
 <body>
 
-<h1>kvit</h1>
-<p class="subtitle">Expense Report</p>
+<div class="header">
+  <h1>kvit</h1>
+  <p class="subtitle">Expense Report</p>
+</div>
 
 <div class="stats" id="stats"></div>
 
@@ -42,8 +44,8 @@
     <h3>
       <span id="pieTitle">Spending by Category</span>
       <span class="toggle-group">
-        <button class="toggle-btn active" onclick="setPieMode('category')">Category</button>
-        <button class="toggle-btn" onclick="setPieMode('product')">Product</button>
+        <button class="toggle-btn active" data-pie-mode="category" onclick="setPieMode('category')">Category</button>
+        <button class="toggle-btn" data-pie-mode="product" onclick="setPieMode('product')">Product</button>
       </span>
     </h3>
     <canvas id="categoryPie"></canvas>
@@ -60,8 +62,8 @@
     <h3>
       <span id="stackedTitle">Weekly Spending by Category</span>
       <span class="toggle-group">
-        <button class="toggle-btn active" onclick="setStackedMode('weekly')">Weekly</button>
-        <button class="toggle-btn" onclick="setStackedMode('monthly')">Monthly</button>
+        <button class="toggle-btn active" data-stacked-mode="weekly" onclick="setStackedMode('weekly')">Weekly</button>
+        <button class="toggle-btn" data-stacked-mode="monthly" onclick="setStackedMode('monthly')">Monthly</button>
       </span>
     </h3>
     <p id="stackedHint" class="chart-hint">Click a category in the legend to drill down into products</p>
@@ -79,8 +81,8 @@
     <div class="table-controls">
       <input type="text" class="search-input" id="tableSearch" placeholder="Search products or categories...">
       <span class="toggle-group">
-        <button class="toggle-btn active" onclick="setTableMode('category')">By Category</button>
-        <button class="toggle-btn" onclick="setTableMode('flat')">Flat List</button>
+        <button class="toggle-btn active" data-table-mode="category" onclick="setTableMode('category')">By Category</button>
+        <button class="toggle-btn" data-table-mode="flat" onclick="setTableMode('flat')">Flat List</button>
       </span>
     </div>
     <table id="productTable">
@@ -92,6 +94,16 @@
       </tr></thead>
       <tbody></tbody>
     </table>
+  </div>
+  <div class="chart-card full">
+    <h3>
+      <span>Category Colors</span>
+      <span style="display:flex;gap:8px">
+        <button class="preset-btn" id="applyColorsBtn" onclick="applyAndSave()">Save colors.csv</button>
+      </span>
+    </h3>
+    <p class="chart-hint">Pick colors for each category, then click Save. Place the downloaded file next to your data files as colors.csv.</p>
+    <div id="colorConfig" class="color-grid"></div>
   </div>
 </div>
 

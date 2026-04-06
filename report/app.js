@@ -1,47 +1,137 @@
 // DATA is injected by Go as: const DATA = {...};
 
-const catMap = {};
-DATA.definitions.forEach(d => catMap[d.product] = d.category);
+// Global Chart.js defaults
+Chart.defaults.color = '#6e7681';
+Chart.defaults.borderColor = '#1e2330';
+Chart.defaults.font.family = "'Outfit', sans-serif";
 
-const COLORS = [
-  '#58a6ff','#f78166','#3fb950','#d2a8ff','#f0883e',
-  '#a5d6ff','#7ee787','#ffa657','#ff7b72','#79c0ff',
-  '#d29922','#56d364','#bc8cff','#e3b341'
-];
+// ── Helpers ──
 
-let charts = {};
-let pieMode = 'category';
-let tableMode = 'category';
-let tableSortCol = 'total';
-let tableSortAsc = false;
-let expandedCats = new Set();
-let currentFiltered = [];
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
 
-// ── Date helpers ──
+function round2(n) { return Math.round(n * 100) / 100; }
 
-function today() { return new Date().toISOString().slice(0,10); }
-function monthStart(d) { return d.slice(0,7) + '-01'; }
+function getCat(product) { return catMap[product] || 'uncategorized'; }
+
+// ISO date format ensures string comparison works for filtering
+function today() { return new Date().toISOString().slice(0, 10); }
+function monthStart(d) { return d.slice(0, 7) + '-01'; }
 function addMonths(dateStr, n) {
   const d = new Date(dateStr + 'T00:00:00');
   d.setMonth(d.getMonth() + n);
-  return d.toISOString().slice(0,10);
+  return d.toISOString().slice(0, 10);
 }
+function dayBefore(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function groupBy(data, keyFn) {
+  const map = {};
+  data.forEach(e => { const k = keyFn(e); map[k] = (map[k] || 0) + e.price; });
+  return map;
+}
+
+function groupBy2(data, outerKeyFn, innerKeyFn) {
+  const map = {};
+  const innerKeys = new Set();
+  data.forEach(e => {
+    const ok = outerKeyFn(e), ik = innerKeyFn(e);
+    innerKeys.add(ik);
+    if (!map[ok]) map[ok] = {};
+    map[ok][ik] = (map[ok][ik] || 0) + e.price;
+  });
+  return { buckets: map, keys: innerKeys };
+}
+
+const dkkTooltip = {
+  callbacks: {
+    label: ctx => {
+      const val = ctx.parsed.y ?? ctx.parsed;
+      const prefix = ctx.dataset?.label ? ctx.dataset.label + ': ' : (ctx.label ? ctx.label + ': ' : '');
+      return prefix + val.toFixed(2) + ' DKK';
+    }
+  }
+};
+
+function stackedBarConfig(extra = {}) {
+  return {
+    ...extra,
+    plugins: {
+      legend: { labels: { color: '#8b949e', padding: 12 } },
+      tooltip: dkkTooltip,
+      ...(extra.plugins || {})
+    },
+    scales: {
+      x: { stacked: true, ticks: { color: '#8b949e' }, grid: { display: false } },
+      y: { stacked: true, ticks: { color: '#8b949e', callback: v => v + ' DKK' }, grid: { color: '#21262d' } }
+    }
+  };
+}
+
+// ── Data setup ──
+
+const catMap = {};
+DATA.definitions.forEach(d => catMap[d.product] = d.category);
+
+// ── Colors ──
+
+const PALETTE = [
+  '#e8b931','#4c9aff','#3fb950','#e05545','#d2a8ff',
+  '#f78166','#79c0ff','#7ee787','#d4956a','#bc8cff',
+  '#f0c75e','#a5d6ff','#c4a35a','#56d364','#ffa657',
+  '#ff7b72','#8b949e','#a371f7','#f69d50','#6cb6ff'
+];
+
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+const colorCache = {};
+function getColorForCat(name) {
+  if (!colorCache[name]) {
+    colorCache[name] = (DATA.colors && DATA.colors[name]) || PALETTE[hashStr(name) % PALETTE.length];
+  }
+  return colorCache[name];
+}
+
+// ── State ──
+
+const state = {
+  charts: {},
+  pieMode: 'category',
+  tableMode: 'category',
+  tableSortCol: 'total',
+  tableSortAsc: false,
+  expandedCats: new Set(),
+  stackedMode: 'weekly',
+  filtered: [],
+};
 
 // ── Presets ──
 
 const PRESETS = [
   { label: 'This month', fn: () => { const t = today(); return [monthStart(t), t]; }},
-  { label: 'Last month', fn: () => { const ms = monthStart(today()); return [addMonths(ms, -1), addMonths(ms, 0, -1)]; }},
+  { label: 'Last month', fn: () => { const ms = monthStart(today()); return [addMonths(ms, -1), dayBefore(ms)]; }},
   { label: 'Last 2 months', fn: () => { const t = today(); return [addMonths(monthStart(t), -1), t]; }},
   { label: 'Last 3 months', fn: () => { const t = today(); return [addMonths(monthStart(t), -2), t]; }},
   { label: 'Last 6 months', fn: () => { const t = today(); return [addMonths(monthStart(t), -5), t]; }},
   { label: 'This year', fn: () => { const t = today(); return [t.slice(0,4) + '-01-01', t]; }},
-  { label: 'All time', fn: () => { const dates = DATA.expenses.map(e=>e.date).sort(); return [dates[0], dates[dates.length-1]]; }},
+  { label: 'All time', fn: () => { const dates = DATA.expenses.map(e => e.date).sort(); return [dates[0], dates[dates.length-1]]; }},
 ];
 
 function initPresets() {
   const container = document.getElementById('presets');
-  PRESETS.forEach((p, i) => {
+  PRESETS.forEach(p => {
     const btn = document.createElement('button');
     btn.className = 'preset-btn';
     btn.textContent = p.label;
@@ -57,6 +147,14 @@ function initPresets() {
   });
 }
 
+// ── Toggle helpers ──
+
+function setToggleActive(groupAttr, value) {
+  document.querySelectorAll('[data-' + groupAttr + ']').forEach(b => {
+    b.classList.toggle('active', b.dataset[groupAttr] === value);
+  });
+}
+
 // ── Filtering ──
 
 function getFiltered() {
@@ -68,19 +166,19 @@ function getFiltered() {
     if (from && e.date < from) return false;
     if (to && e.date > to) return false;
     if (store && e.store !== store) return false;
-    if (cat && catMap[e.product] !== cat) return false;
+    if (cat && getCat(e.product) !== cat) return false;
     return true;
   });
 }
 
 function updateAll() {
-  currentFiltered = getFiltered();
-  updateStats(currentFiltered);
-  updatePieChart(currentFiltered);
-  updateStoreBar(currentFiltered);
-  updateDailyLine(currentFiltered);
-  updateWeeklyStacked(currentFiltered);
-  updateProductTable(currentFiltered);
+  state.filtered = getFiltered();
+  updateStats(state.filtered);
+  updatePieChart(state.filtered);
+  updateStoreBar(state.filtered);
+  updateDailyLine(state.filtered);
+  updateWeeklyStacked(state.filtered);
+  updateProductTable(state.filtered);
 }
 
 // ── Stats ──
@@ -90,70 +188,66 @@ function updateStats(data) {
   const days = new Set(data.map(e => e.date)).size;
   const avgDay = days > 0 ? total / days : 0;
 
-  const dayTotals = {};
-  data.forEach(e => { dayTotals[e.date] = (dayTotals[e.date] || 0) + e.price; });
+  const dayTotals = groupBy(data, e => e.date);
   let maxDay = '', maxDayTotal = 0;
   Object.entries(dayTotals).forEach(([d, t]) => { if (t > maxDayTotal) { maxDay = d; maxDayTotal = t; }});
 
-  const prodTotals = {};
-  data.forEach(e => { prodTotals[e.product] = (prodTotals[e.product] || 0) + e.price; });
+  const prodTotals = groupBy(data, e => e.product);
   let maxProd = '', maxProdTotal = 0;
   Object.entries(prodTotals).forEach(([p, t]) => { if (t > maxProdTotal) { maxProd = p; maxProdTotal = t; }});
 
   document.getElementById('stats').innerHTML =
-    statCard('Total Spent', total.toFixed(2), 'DKK', '') +
+    statCard('Total Spent', total.toFixed(2), 'DKK', '', true) +
     statCard('Avg / Day', avgDay.toFixed(2), 'DKK', days + ' days') +
     statCard('Most Expensive Day', maxDayTotal.toFixed(2), 'DKK', maxDay) +
     statCard('Top Product', maxProdTotal.toFixed(2), 'DKK', maxProd);
 }
 
-function statCard(label, value, unit, detail) {
-  return '<div class="stat-card"><div class="label">' + label + '</div><div class="value">' +
-    value + ' <span class="unit">' + unit + '</span></div>' +
-    (detail ? '<div class="detail">' + detail + '</div>' : '') + '</div>';
+function statCard(label, value, unit, detail, hero) {
+  return '<div class="stat-card' + (hero ? ' hero' : '') + '"><div class="label">' + esc(label) + '</div><div class="value">' +
+    esc(value) + ' <span class="unit">' + esc(unit) + '</span></div>' +
+    (detail ? '<div class="detail">' + esc(detail) + '</div>' : '') + '</div>';
 }
 
 // ── Pie chart ──
 
 function setPieMode(mode) {
-  pieMode = mode;
-  document.querySelectorAll('.chart-card:first-child .toggle-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector('.toggle-btn[onclick*="setPieMode(\'' + mode + '\')"]').classList.add('active');
+  state.pieMode = mode;
+  setToggleActive('pieMode', mode);
   document.getElementById('pieTitle').textContent = mode === 'category' ? 'Spending by Category' : 'Spending by Product';
-  updatePieChart(currentFiltered);
+  updatePieChart(state.filtered);
 }
-// Expose to onclick
-window.setPieMode = setPieMode;
 
 function updatePieChart(data) {
-  const grouped = {};
-  data.forEach(e => {
-    const key = pieMode === 'category' ? (catMap[e.product] || 'uncategorized') : e.product;
-    grouped[key] = (grouped[key] || 0) + e.price;
-  });
+  const grouped = groupBy(data, e => state.pieMode === 'category' ? getCat(e.product) : e.product);
   const entries = Object.entries(grouped).sort((a, b) => b[1] - a[1]);
+
   let labels, values;
-  if (pieMode === 'product' && entries.length > 10) {
+  if (state.pieMode === 'product' && entries.length > 10) {
     const top = entries.slice(0, 10);
     const otherTotal = entries.slice(10).reduce((s, e) => s + e[1], 0);
     labels = top.map(e => e[0]).concat(['other']);
-    values = top.map(e => Math.round(e[1] * 100) / 100).concat([Math.round(otherTotal * 100) / 100]);
+    values = top.map(e => round2(e[1])).concat([round2(otherTotal)]);
   } else {
     labels = entries.map(e => e[0]);
-    values = entries.map(e => Math.round(e[1] * 100) / 100);
+    values = entries.map(e => round2(e[1]));
   }
 
-  if (charts.pie) charts.pie.destroy();
-  charts.pie = new Chart(document.getElementById('categoryPie'), {
+  const colors = state.pieMode === 'category'
+    ? labels.map(l => getColorForCat(l))
+    : labels.map((_, i) => PALETTE[i % PALETTE.length]);
+
+  if (state.charts.pie) state.charts.pie.destroy();
+  state.charts.pie = new Chart(document.getElementById('categoryPie'), {
     type: 'doughnut',
     data: {
-      labels: labels,
-      datasets: [{ data: values, backgroundColor: COLORS.slice(0, labels.length), borderWidth: 0 }]
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }]
     },
     options: {
       plugins: {
         legend: { position: 'right', labels: { color: '#8b949e', padding: 8, font: { size: 11 } } },
-        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.parsed.toFixed(2) + ' DKK' } }
+        tooltip: dkkTooltip
       }
     }
   });
@@ -162,17 +256,16 @@ function updatePieChart(data) {
 // ── Store bar ──
 
 function updateStoreBar(data) {
-  const grouped = {};
-  data.forEach(e => { grouped[e.store] = (grouped[e.store] || 0) + e.price; });
+  const grouped = groupBy(data, e => e.store);
   const labels = Object.keys(grouped).sort((a, b) => grouped[b] - grouped[a]);
-  const values = labels.map(l => Math.round(grouped[l] * 100) / 100);
+  const values = labels.map(l => round2(grouped[l]));
 
-  if (charts.storeBar) charts.storeBar.destroy();
-  charts.storeBar = new Chart(document.getElementById('storeBar'), {
+  if (state.charts.storeBar) state.charts.storeBar.destroy();
+  state.charts.storeBar = new Chart(document.getElementById('storeBar'), {
     type: 'bar',
-    data: { labels, datasets: [{ data: values, backgroundColor: COLORS.slice(0, labels.length), borderRadius: 4 }] },
+    data: { labels, datasets: [{ data: values, backgroundColor: PALETTE.slice(0, labels.length), borderRadius: 4 }] },
     options: {
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.y.toFixed(2) + ' DKK' } } },
+      plugins: { legend: { display: false }, tooltip: dkkTooltip },
       scales: {
         x: { ticks: { color: '#8b949e' }, grid: { display: false } },
         y: { ticks: { color: '#8b949e', callback: v => v + ' DKK' }, grid: { color: '#21262d' } }
@@ -184,13 +277,12 @@ function updateStoreBar(data) {
 // ── Daily line ──
 
 function updateDailyLine(data) {
-  const grouped = {};
-  data.forEach(e => { grouped[e.date] = (grouped[e.date] || 0) + e.price; });
+  const grouped = groupBy(data, e => e.date);
   const dates = Object.keys(grouped).sort();
-  const values = dates.map(d => Math.round(grouped[d] * 100) / 100);
+  const values = dates.map(d => round2(grouped[d]));
 
-  if (charts.dailyLine) charts.dailyLine.destroy();
-  charts.dailyLine = new Chart(document.getElementById('dailyLine'), {
+  if (state.charts.dailyLine) state.charts.dailyLine.destroy();
+  state.charts.dailyLine = new Chart(document.getElementById('dailyLine'), {
     type: 'line',
     data: {
       labels: dates,
@@ -200,7 +292,7 @@ function updateDailyLine(data) {
       }]
     },
     options: {
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.y.toFixed(2) + ' DKK' } } },
+      plugins: { legend: { display: false }, tooltip: dkkTooltip },
       scales: {
         x: { ticks: { color: '#8b949e', maxTicksLimit: 15 }, grid: { color: '#21262d' } },
         y: { ticks: { color: '#8b949e', callback: v => v + ' DKK' }, grid: { color: '#21262d' } }
@@ -211,195 +303,144 @@ function updateDailyLine(data) {
 
 // ── Stacked chart (weekly/monthly) ──
 
-let stackedMode = 'weekly';
-
 function setStackedMode(mode) {
-  stackedMode = mode;
-  document.querySelectorAll('#stackedTitle').forEach(el => {
-    el.textContent = mode === 'weekly' ? 'Weekly Spending by Category' : 'Monthly Spending by Category';
-  });
-  const btns = document.querySelectorAll('#stackedTitle + .toggle-group .toggle-btn');
-  btns.forEach(b => b.classList.remove('active'));
-  document.querySelector('.toggle-btn[onclick*="setStackedMode(\'' + mode + '\')"]').classList.add('active');
+  state.stackedMode = mode;
+  setToggleActive('stackedMode', mode);
+  document.getElementById('stackedTitle').textContent =
+    mode === 'weekly' ? 'Weekly Spending by Category' : 'Monthly Spending by Category';
   closeDrilldown();
-  updateWeeklyStacked(currentFiltered);
+  updateWeeklyStacked(state.filtered);
 }
-window.setStackedMode = setStackedMode;
 
 function getBucketKey(dateStr) {
-  if (stackedMode === 'monthly') {
-    return dateStr.slice(0, 7); // YYYY-MM
-  }
+  if (state.stackedMode === 'monthly') return dateStr.slice(0, 7);
   const d = new Date(dateStr);
   const ws = new Date(d); ws.setDate(d.getDate() - d.getDay() + 1);
   return ws.toISOString().slice(0, 10);
 }
 
 function getBucketLabel(key) {
-  if (stackedMode === 'monthly') {
+  if (state.stackedMode === 'monthly') {
     const [y, m] = key.split('-');
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return months[parseInt(m)-1] + ' ' + y;
+    return months[parseInt(m) - 1] + ' ' + y;
   }
   return 'Week of ' + key;
 }
 
 function updateWeeklyStacked(data) {
-  const buckets = {};
-  const allCats = new Set();
-  data.forEach(e => {
-    const bk = getBucketKey(e.date);
-    const cat = catMap[e.product] || 'uncategorized';
-    allCats.add(cat);
-    if (!buckets[bk]) buckets[bk] = {};
-    buckets[bk][cat] = (buckets[bk][cat] || 0) + e.price;
-  });
+  const { buckets, keys: allCats } = groupBy2(data, e => getBucketKey(e.date), e => getCat(e.product));
   const bucketLabels = Object.keys(buckets).sort();
   const categories = [...allCats].sort();
-  const datasets = categories.map((cat, i) => ({
+
+  const datasets = categories.map(cat => ({
     label: cat,
-    data: bucketLabels.map(b => Math.round((buckets[b][cat] || 0) * 100) / 100),
-    backgroundColor: COLORS[i % COLORS.length], borderRadius: 2
+    data: bucketLabels.map(b => round2(buckets[b]?.[cat] || 0)),
+    backgroundColor: getColorForCat(cat),
+    borderRadius: 2
   }));
 
-  if (charts.weeklyStacked) charts.weeklyStacked.destroy();
-  charts.weeklyStacked = new Chart(document.getElementById('weeklyStacked'), {
+  if (state.charts.weeklyStacked) state.charts.weeklyStacked.destroy();
+  state.charts.weeklyStacked = new Chart(document.getElementById('weeklyStacked'), {
     type: 'bar',
     data: { labels: bucketLabels.map(getBucketLabel), datasets },
-    options: {
+    options: stackedBarConfig({
       onClick: (evt, elements) => {
-        if (elements.length > 0) {
-          const dsIndex = elements[0].datasetIndex;
-          const cat = categories[dsIndex];
-          showDrilldown(cat, data);
-        }
+        if (elements.length > 0) showDrilldown(categories[elements[0].datasetIndex], data);
       },
       plugins: {
         legend: {
           labels: { color: '#8b949e', padding: 12 },
-          onClick: (evt, item, legend) => {
-            const cat = item.text;
-            showDrilldown(cat, data);
-          }
+          onClick: (evt, item) => showDrilldown(item.text, data)
         },
-        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + ' DKK' } }
-      },
-      scales: {
-        x: { stacked: true, ticks: { color: '#8b949e' }, grid: { display: false } },
-        y: { stacked: true, ticks: { color: '#8b949e', callback: v => v + ' DKK' }, grid: { color: '#21262d' } }
+        tooltip: dkkTooltip
       }
-    }
+    })
   });
 }
 
-// ── Drilldown (products within a category) ──
+// ── Drilldown ──
 
 function showDrilldown(category, data) {
-  const card = document.getElementById('drilldownCard');
-  card.style.display = 'block';
+  document.getElementById('drilldownCard').style.display = 'block';
   document.getElementById('drilldownTitle').textContent = category + ' — Products';
   document.getElementById('stackedHint').textContent = 'Showing drill-down for: ' + category;
 
-  const catData = data.filter(e => (catMap[e.product] || 'uncategorized') === category);
-
-  const buckets = {};
-  const allProducts = new Set();
-  catData.forEach(e => {
-    const bk = getBucketKey(e.date);
-    allProducts.add(e.product);
-    if (!buckets[bk]) buckets[bk] = {};
-    buckets[bk][e.product] = (buckets[bk][e.product] || 0) + e.price;
-  });
-
+  const catData = data.filter(e => getCat(e.product) === category);
+  const { buckets, keys: allProducts } = groupBy2(catData, e => getBucketKey(e.date), e => e.product);
   const bucketLabels = Object.keys(buckets).sort();
   const products = [...allProducts].sort();
+
   const datasets = products.map((prod, i) => ({
     label: prod,
-    data: bucketLabels.map(b => Math.round((buckets[b][prod] || 0) * 100) / 100),
-    backgroundColor: COLORS[i % COLORS.length], borderRadius: 2
+    data: bucketLabels.map(b => round2(buckets[b]?.[prod] || 0)),
+    backgroundColor: PALETTE[i % PALETTE.length],
+    borderRadius: 2
   }));
 
-  if (charts.drilldown) charts.drilldown.destroy();
-  charts.drilldown = new Chart(document.getElementById('drilldownChart'), {
+  if (state.charts.drilldown) state.charts.drilldown.destroy();
+  state.charts.drilldown = new Chart(document.getElementById('drilldownChart'), {
     type: 'bar',
     data: { labels: bucketLabels.map(getBucketLabel), datasets },
-    options: {
-      plugins: {
-        legend: { labels: { color: '#8b949e', padding: 12 } },
-        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + ' DKK' } }
-      },
-      scales: {
-        x: { stacked: true, ticks: { color: '#8b949e' }, grid: { display: false } },
-        y: { stacked: true, ticks: { color: '#8b949e', callback: v => v + ' DKK' }, grid: { color: '#21262d' } }
-      }
-    }
+    options: stackedBarConfig()
   });
 
-  card.scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('drilldownCard').scrollIntoView({ behavior: 'smooth' });
 }
 
 function closeDrilldown() {
   document.getElementById('drilldownCard').style.display = 'none';
   document.getElementById('stackedHint').textContent = 'Click a category in the legend to drill down into products';
-  if (charts.drilldown) { charts.drilldown.destroy(); charts.drilldown = null; }
+  if (state.charts.drilldown) { state.charts.drilldown.destroy(); state.charts.drilldown = null; }
 }
-window.closeDrilldown = closeDrilldown;
 
 // ── Table ──
 
 function setTableMode(mode) {
-  tableMode = mode;
-  document.querySelectorAll('.table-controls .toggle-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector('.table-controls .toggle-btn[onclick*="setTableMode(\'' + mode + '\')"]').classList.add('active');
-  expandedCats.clear();
-  updateProductTable(currentFiltered);
+  state.tableMode = mode;
+  setToggleActive('tableMode', mode);
+  state.expandedCats.clear();
+  updateProductTable(state.filtered);
 }
-window.setTableMode = setTableMode;
 
 function updateProductTable(data) {
   const total = data.reduce((s, e) => s + e.price, 0);
   const search = document.getElementById('tableSearch').value.toLowerCase();
-
-  const products = {};
-  data.forEach(e => {
-    if (!products[e.product]) products[e.product] = 0;
-    products[e.product] += e.price;
-  });
-
+  const products = groupBy(data, e => e.product);
   const tbody = document.querySelector('#productTable tbody');
 
-  if (tableMode === 'flat') {
+  if (state.tableMode === 'flat') {
     let entries = Object.entries(products).map(([name, t]) => ({
-      name, category: catMap[name] || '-', total: t, pct: total > 0 ? t/total*100 : 0
+      name, category: getCat(name), total: t, pct: total > 0 ? t / total * 100 : 0
     }));
 
-    if (search) {
-      entries = entries.filter(e => e.name.includes(search) || e.category.includes(search));
-    }
+    if (search) entries = entries.filter(e => e.name.includes(search) || e.category.includes(search));
 
     entries.sort((a, b) => {
-      let va = a[tableSortCol] || a.name, vb = b[tableSortCol] || b.name;
-      if (tableSortCol === 'name' || tableSortCol === 'category') {
-        return tableSortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+      const va = a[state.tableSortCol] !== undefined ? a[state.tableSortCol] : a.name;
+      const vb = b[state.tableSortCol] !== undefined ? b[state.tableSortCol] : b.name;
+      if (state.tableSortCol === 'name' || state.tableSortCol === 'category') {
+        return state.tableSortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
       }
-      return tableSortAsc ? va - vb : vb - va;
+      return state.tableSortAsc ? va - vb : vb - va;
     });
 
     tbody.innerHTML = entries.map(e =>
-      '<tr><td>' + e.name + '</td><td>' + e.category + '</td><td class="amount">' +
-      e.total.toFixed(2) + '</td><td class="pct">' + e.pct.toFixed(1) + '%</td></tr>'
+      '<tr><td>' + esc(e.name) + '</td><td>' + esc(e.category) + '</td><td class="amount">' +
+      e.total.toFixed(2) + '</td><td class="pct"><span class="pct-bar" style="width:' +
+      Math.max(e.pct * 0.8, 2) + 'px"></span>' + e.pct.toFixed(1) + '%</td></tr>'
     ).join('');
   } else {
     const catGroups = {};
     Object.entries(products).forEach(([name, t]) => {
-      const cat = catMap[name] || 'uncategorized';
+      const cat = getCat(name);
       if (!catGroups[cat]) catGroups[cat] = { total: 0, products: [] };
       catGroups[cat].total += t;
-      catGroups[cat].products.push({ name, total: t, pct: total > 0 ? t/total*100 : 0 });
+      catGroups[cat].products.push({ name, total: t, pct: total > 0 ? t / total * 100 : 0 });
     });
 
-    let catEntries = Object.entries(catGroups).sort((a, b) => b[1].total - a[1].total);
-    catEntries.forEach(([_, g]) => { g.products.sort((a, b) => b.total - a.total); });
+    const catEntries = Object.entries(catGroups).sort((a, b) => b[1].total - a[1].total);
+    catEntries.forEach(([_, g]) => g.products.sort((a, b) => b.total - a.total));
 
     let html = '';
     catEntries.forEach(([cat, g]) => {
@@ -407,19 +448,21 @@ function updateProductTable(data) {
       const matchingProducts = g.products.filter(p => !search || p.name.includes(search) || cat.includes(search));
       if (!matchesCat && matchingProducts.length === 0) return;
 
-      const expanded = expandedCats.has(cat);
+      const expanded = state.expandedCats.has(cat);
       const icon = expanded ? '&#9660;' : '&#9654;';
       const catPct = total > 0 ? (g.total / total * 100).toFixed(1) : '0';
 
-      html += '<tr class="cat-row" data-cat="' + cat + '"><td><span class="expand-icon">' + icon + '</span>' +
-        cat + '</td><td></td><td class="amount">' + g.total.toFixed(2) +
-        '</td><td class="pct">' + catPct + '%</td></tr>';
+      html += '<tr class="cat-row" data-cat="' + esc(cat) + '"><td><span class="expand-icon">' + icon + '</span>' +
+        esc(cat) + '</td><td></td><td class="amount">' + g.total.toFixed(2) +
+        '</td><td class="pct"><span class="pct-bar" style="width:' +
+        Math.max(parseFloat(catPct) * 0.8, 2) + 'px"></span>' + catPct + '%</td></tr>';
 
       const prods = search ? matchingProducts : g.products;
       prods.forEach(p => {
-        html += '<tr class="product-row ' + (expanded ? '' : 'hidden') + '" data-cat="' + cat +
-          '"><td>' + p.name + '</td><td>' + cat + '</td><td class="amount">' +
-          p.total.toFixed(2) + '</td><td class="pct">' + p.pct.toFixed(1) + '%</td></tr>';
+        html += '<tr class="product-row ' + (expanded ? '' : 'hidden') + '" data-cat="' + esc(cat) +
+          '"><td>' + esc(p.name) + '</td><td>' + esc(cat) + '</td><td class="amount">' +
+          p.total.toFixed(2) + '</td><td class="pct"><span class="pct-bar" style="width:' +
+          Math.max(p.pct * 0.8, 2) + 'px"></span>' + p.pct.toFixed(1) + '%</td></tr>';
       });
     });
     tbody.innerHTML = html;
@@ -427,8 +470,8 @@ function updateProductTable(data) {
     document.querySelectorAll('.cat-row').forEach(row => {
       row.onclick = () => {
         const cat = row.dataset.cat;
-        if (expandedCats.has(cat)) expandedCats.delete(cat); else expandedCats.add(cat);
-        updateProductTable(currentFiltered);
+        if (state.expandedCats.has(cat)) state.expandedCats.delete(cat); else state.expandedCats.add(cat);
+        updateProductTable(state.filtered);
       };
     });
   }
@@ -436,28 +479,82 @@ function updateProductTable(data) {
   document.querySelectorAll('#productTable th').forEach(th => {
     const col = th.dataset.sort;
     const arrow = th.querySelector('.sort-arrow');
-    if (col === tableSortCol) {
-      arrow.textContent = tableSortAsc ? ' ▲' : ' ▼';
-    } else {
-      arrow.textContent = '';
-    }
+    arrow.textContent = col === state.tableSortCol ? (state.tableSortAsc ? ' ▲' : ' ▼') : '';
   });
 }
 
-// ── Sort handler ──
+// ── Event listeners ──
 
 document.querySelectorAll('#productTable th').forEach(th => {
   th.onclick = () => {
     const col = th.dataset.sort;
     if (!col) return;
-    if (tableSortCol === col) { tableSortAsc = !tableSortAsc; } else { tableSortCol = col; tableSortAsc = false; }
-    updateProductTable(currentFiltered);
+    if (state.tableSortCol === col) { state.tableSortAsc = !state.tableSortAsc; } else { state.tableSortCol = col; state.tableSortAsc = false; }
+    updateProductTable(state.filtered);
   };
 });
 
-// ── Search handler ──
+document.getElementById('tableSearch').addEventListener('input', () => updateProductTable(state.filtered));
 
-document.getElementById('tableSearch').addEventListener('input', () => updateProductTable(currentFiltered));
+document.getElementById('dateFrom').addEventListener('change', () => { document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active')); updateAll(); });
+document.getElementById('dateTo').addEventListener('change', () => { document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active')); updateAll(); });
+document.getElementById('storeFilter').addEventListener('change', updateAll);
+document.getElementById('categoryFilter').addEventListener('change', updateAll);
+
+// ── Color configurator ──
+
+function initColorConfig() {
+  const categories = [...new Set(DATA.definitions.map(d => d.category))].sort();
+  const container = document.getElementById('colorConfig');
+  if (!container || categories.length === 0) return;
+
+  categories.forEach(cat => {
+    const row = document.createElement('div');
+    row.className = 'color-row';
+
+    const swatch = document.createElement('input');
+    swatch.type = 'color';
+    swatch.value = getColorForCat(cat);
+    swatch.className = 'color-picker';
+    swatch.dataset.cat = cat;
+
+    const label = document.createElement('span');
+    label.className = 'color-label';
+    label.textContent = cat;
+
+    row.appendChild(swatch);
+    row.appendChild(label);
+    container.appendChild(row);
+  });
+}
+
+function applyAndSave() {
+  // Update color cache from pickers
+  document.querySelectorAll('.color-picker').forEach(swatch => {
+    colorCache[swatch.dataset.cat] = swatch.value;
+  });
+  updateAll();
+
+  // Build and download CSV
+  const categories = [...new Set(DATA.definitions.map(d => d.category))].sort();
+  const csv = 'category,color\n' + categories.map(cat => cat + ',' + getColorForCat(cat)).join('\n') + '\n';
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'colors.csv';
+  a.click();
+
+  const btn = document.getElementById('applyColorsBtn');
+  btn.textContent = 'Saved!';
+  setTimeout(() => { btn.textContent = 'Save colors.csv'; }, 2000);
+}
+
+// Expose to onclick handlers in HTML
+window.setPieMode = setPieMode;
+window.setStackedMode = setStackedMode;
+window.setTableMode = setTableMode;
+window.closeDrilldown = closeDrilldown;
+window.applyAndSave = applyAndSave;
 
 // ── Init ──
 
@@ -476,11 +573,7 @@ function initFilters() {
   document.getElementById('dateTo').value = dates[dates.length - 1];
 }
 
-document.getElementById('dateFrom').addEventListener('change', () => { document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active')); updateAll(); });
-document.getElementById('dateTo').addEventListener('change', () => { document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active')); updateAll(); });
-document.getElementById('storeFilter').addEventListener('change', updateAll);
-document.getElementById('categoryFilter').addEventListener('change', updateAll);
-
 initPresets();
 initFilters();
+initColorConfig();
 updateAll();

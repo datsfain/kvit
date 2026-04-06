@@ -27,6 +27,7 @@ func init() {
 type reportData struct {
 	Expenses    []expenseJSON    `json:"expenses"`
 	Definitions []definitionJSON `json:"definitions"`
+	Colors      map[string]string `json:"colors"`
 }
 
 type expenseJSON struct {
@@ -53,8 +54,10 @@ func runSummary(cmd *cobra.Command, args []string) {
 	}
 
 	defs, _ := storage.LoadDefinitions()
+	colors := storage.LoadColors()
 
 	var data reportData
+	data.Colors = colors
 	for _, e := range expenses {
 		data.Expenses = append(data.Expenses, expenseJSON{
 			Date: e.Date, Store: e.Store, Product: e.Product, Price: e.Price,

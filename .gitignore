@@ -5,6 +5,7 @@ kvit
 expenses.csv
 definitions.csv
 exclusions.csv
+colors.csv
 
 # Build output
 dist/
