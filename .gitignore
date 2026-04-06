@@ -1,0 +1,15 @@
+# Binary
+kvit
+
+# Data (local only, synced via Google Drive)
+data/
+
+# Build output
+dist/
+
+# IDE
+.idea/
+
+# Claude memory
+.claude/
+memory/
