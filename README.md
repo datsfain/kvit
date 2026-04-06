@@ -94,3 +94,10 @@ kvit sync pull             # prompts to sign in, then paste the shared folder UR
 ```
 
 **Daily use:** `pull` before adding, `push` after.
+
+## Uninstall
+
+```bash
+sudo rm /usr/local/bin/kvit
+rm -rf ~/.config/kvit
+```
