@@ -22,10 +22,11 @@ import (
 )
 
 const (
-	clientID   = "203669531432-3i00dasn3vondekdoiqgcoo4caki2lcl.apps.googleusercontent.com"
-	folderName = "kvit"
-	authURL    = "https://accounts.google.com/o/oauth2/v2/auth"
-	tokenURL   = "https://oauth2.googleapis.com/token"
+	clientID     = "203669531432-3i00dasn3vondekdoiqgcoo4caki2lcl.apps.googleusercontent.com"
+	clientSecret = "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" // Safe for desktop apps per Google OAuth docs
+	folderName   = "kvit"
+	authURL      = "https://accounts.google.com/o/oauth2/v2/auth"
+	tokenURL     = "https://oauth2.googleapis.com/token"
 )
 
 var oauthConfig = &oauth2.Config{
@@ -188,6 +189,7 @@ func Auth() error {
 func exchangeCodePKCE(code, verifier, redirectURL string) (*oauth2.Token, error) {
 	data := url.Values{
 		"client_id":     {clientID},
+		"client_secret": {clientSecret},
 		"code":          {code},
 		"code_verifier": {verifier},
 		"grant_type":    {"authorization_code"},
@@ -225,6 +227,7 @@ func Logout() error {
 func refreshToken(token *oauth2.Token) (*oauth2.Token, error) {
 	data := url.Values{
 		"client_id":     {clientID},
+		"client_secret": {clientSecret},
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {token.RefreshToken},
 	}
