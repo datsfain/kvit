@@ -8,6 +8,7 @@ exclusions.csv
 
 # Build output
 dist/
+kvit-report.html
 
 # IDE
 .idea/
