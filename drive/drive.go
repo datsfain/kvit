@@ -218,11 +218,11 @@ func Auth() error {
 	defer server.Close()
 
 	// Build auth URL with PKCE parameters and state
-	authRequestURL := fmt.Sprintf("%s?client_id=%s&redirect_uri=%s&response_type=code&scope=%s&access_type=offline&prompt=consent&code_challenge=%s&code_challenge_method=S256&state=%s",
+	authRequestURL := fmt.Sprintf("%s?client_id=%s&redirect_uri=%s&response_type=code&scope=%s&access_type=offline&prompt=consent+select_account&code_challenge=%s&code_challenge_method=S256&state=%s",
 		authURL,
 		url.QueryEscape(clientID),
 		url.QueryEscape(redirectURL),
-		url.QueryEscape(drive.DriveFileScope),
+		url.QueryEscape(drive.DriveScope),
 		url.QueryEscape(challenge),
 		url.QueryEscape(state),
 	)
