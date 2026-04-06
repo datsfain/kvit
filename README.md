@@ -85,18 +85,12 @@ kvit sync push             # uploads data (prompts to sign in and link folder on
 kvit sync open             # open folder in browser, then share it with family
 ```
 
-**Family member — quick setup:**
+**Family member:**
+
+[Install kvit](#install) first, then:
 ```bash
-curl -sSL https://raw.githubusercontent.com/datsfain/kvit/main/install.sh | bash
 mkdir ~/expenses && cd ~/expenses
 kvit sync pull             # prompts to sign in, then paste the shared folder URL
-```
-
-**Family member — manual setup:**
-```bash
-kvit auth                  # sign in with Google
-kvit sync link             # paste the shared folder URL
-kvit sync pull             # download data
 ```
 
 **Daily use:** `pull` before adding, `push` after.
