@@ -47,19 +47,19 @@ kvit exclude list               # see all exclusions
 
 ## Data format
 
-**`data/expenses.csv`** — all expenses:
+**`expenses.csv`** — all expenses:
 ```
 date,store,product,price
 2026-04-05,netto,ground-beef,200.00
 ```
 
-**`data/definitions.csv`** — product categories:
+**`definitions.csv`** — product categories:
 ```
 product,category
 ground-beef,meat
 ```
 
-**`data/exclusions.csv`** — products hidden from AI prompt.
+**`exclusions.csv`** — products hidden from AI prompt.
 
 ## Install
 

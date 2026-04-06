@@ -115,10 +115,6 @@ func LoadExclusions() map[string]bool {
 
 // AddExclusion adds a product to the exclusions list
 func AddExclusion(product string) error {
-	if err := config.EnsureDataDir(); err != nil {
-		return err
-	}
-
 	fileExists := true
 	if _, err := os.Stat(config.ExclusionsPath()); os.IsNotExist(err) {
 		fileExists = false
@@ -173,10 +169,6 @@ func RemoveExclusion(product string) error {
 
 // AppendDefinitions adds new product->category mappings
 func AppendDefinitions(defs []models.Definition) error {
-	if err := config.EnsureDataDir(); err != nil {
-		return err
-	}
-
 	fileExists := true
 	if _, err := os.Stat(config.DefinitionsPath()); os.IsNotExist(err) {
 		fileExists = false

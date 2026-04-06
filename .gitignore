@@ -2,7 +2,9 @@
 kvit
 
 # Data (local only, synced via Google Drive)
-data/
+expenses.csv
+definitions.csv
+exclusions.csv
 
 # Build output
 dist/

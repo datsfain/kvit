@@ -51,10 +51,6 @@ func LoadExpenses() ([]models.Expense, error) {
 
 // AppendExpenses adds expenses to the CSV file, creating it with header if needed
 func AppendExpenses(expenses []models.Expense) error {
-	if err := config.EnsureDataDir(); err != nil {
-		return err
-	}
-
 	fileExists := true
 	if _, err := os.Stat(config.ExpensesPath()); os.IsNotExist(err) {
 		fileExists = false
