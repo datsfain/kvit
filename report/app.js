@@ -131,6 +131,8 @@ const state = {
   expandedCats: new Set(),
   stackedMode: 'weekly',
   filtered: [],
+  excludedProducts: new Set(),
+  excludedCategories: new Set(),
 };
 
 // ── Presets ──
@@ -163,6 +165,55 @@ function initPresets() {
   });
 }
 
+// ── Exclusions ──
+
+function addExclusion(type, value) {
+  if (!value) return;
+  (type === 'product' ? state.excludedProducts : state.excludedCategories).add(value);
+  renderExclusions();
+  updateAll();
+}
+
+function removeExclusion(type, value) {
+  (type === 'product' ? state.excludedProducts : state.excludedCategories).delete(value);
+  renderExclusions();
+  updateAll();
+}
+
+function renderExclusions() {
+  const bar = document.getElementById('exclusionsBar');
+  const chips = document.getElementById('exclusionsChips');
+  const prodSel = document.getElementById('excludeProductSelect');
+  const catSel = document.getElementById('excludeCategorySelect');
+
+  const hasAny = state.excludedProducts.size > 0 || state.excludedCategories.size > 0;
+  bar.classList.toggle('has-exclusions', hasAny);
+
+  let html = '';
+  [...state.excludedCategories].sort().forEach(c => {
+    html += '<span class="exclusion-chip chip-category" data-type="category" data-value="' + esc(c) + '">' +
+      '<span class="chip-icon">folder</span>' + esc(c) +
+      '<button class="chip-remove" onclick="removeExclusion(\'category\', \'' + esc(c) + '\')">×</button></span>';
+  });
+  [...state.excludedProducts].sort().forEach(p => {
+    html += '<span class="exclusion-chip chip-product" data-type="product" data-value="' + esc(p) + '">' +
+      '<span class="chip-icon">item</span>' + esc(p) +
+      '<button class="chip-remove" onclick="removeExclusion(\'product\', \'' + esc(p) + '\')">×</button></span>';
+  });
+  chips.innerHTML = html;
+
+  // Repopulate selects excluding already-excluded items
+  const allProducts = [...new Set(DATA.expenses.map(e => e.product))].sort();
+  const allCats = [...new Set(DATA.definitions.map(d => d.category))].sort();
+
+  prodSel.innerHTML = '<option value="">+ Exclude product</option>' +
+    allProducts.filter(p => !state.excludedProducts.has(p))
+      .map(p => '<option value="' + esc(p) + '">' + esc(p) + '</option>').join('');
+  catSel.innerHTML = '<option value="">+ Exclude category</option>' +
+    allCats.filter(c => !state.excludedCategories.has(c))
+      .map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+}
+
 // ── Toggle helpers ──
 
 function setToggleActive(groupAttr, value) {
@@ -179,11 +230,16 @@ function getFiltered() {
   const to = document.getElementById('dateTo').value;
   const store = document.getElementById('storeFilter').value;
   const cat = document.getElementById('categoryFilter').value;
+  const needsCat = cat || state.excludedCategories.size > 0;
   return DATA.expenses.filter(e => {
     if (from && e.date < from) return false;
     if (to && e.date > to) return false;
     if (store && e.store !== store) return false;
-    if (cat && getCat(e.product) !== cat) return false;
+    if (state.excludedProducts.has(e.product)) return false;
+    if (!needsCat) return true;
+    const productCat = getCat(e.product);
+    if (state.excludedCategories.has(productCat)) return false;
+    if (cat && productCat !== cat) return false;
     return true;
   });
 }
@@ -573,6 +629,8 @@ function closeProductDetail() {
 }
 window.closeProductDetail = closeProductDetail;
 window.setPieLimit = setPieLimit;
+window.addExclusion = addExclusion;
+window.removeExclusion = removeExclusion;
 
 // ── Event listeners ──
 
@@ -667,4 +725,13 @@ function initFilters() {
 initPresets();
 initFilters();
 initColorConfig();
+renderExclusions();
+document.getElementById('excludeProductSelect').addEventListener('change', e => {
+  addExclusion('product', e.target.value);
+  e.target.value = '';
+});
+document.getElementById('excludeCategorySelect').addEventListener('change', e => {
+  addExclusion('category', e.target.value);
+  e.target.value = '';
+});
 updateAll();

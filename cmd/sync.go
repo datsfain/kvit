@@ -142,7 +142,11 @@ func promptAndLink(args []string) {
 
 func isAuthError(err error) bool {
 	s := err.Error()
-	return strings.Contains(s, "401") || strings.Contains(s, "Invalid Credentials") || strings.Contains(s, "token expired")
+	return strings.Contains(s, "401") ||
+		strings.Contains(s, "Invalid Credentials") ||
+		strings.Contains(s, "token expired") ||
+		strings.Contains(s, "failed to refresh token") ||
+		strings.Contains(s, "not authenticated")
 }
 
 func reauth() bool {
