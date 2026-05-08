@@ -258,8 +258,11 @@ function updateAll() {
 
 function updateStats(data) {
   const total = data.reduce((s, e) => s + e.price, 0);
-  const days = new Set(data.map(e => e.date)).size;
-  const avgDay = days > 0 ? total / days : 0;
+  const dates = data.map(e => e.date).sort();
+  const spanDays = dates.length > 0
+    ? (new Date(dates.at(-1)) - new Date(dates[0])) / 86400000 + 1
+    : 0;
+  const avgDay = spanDays > 0 ? total / spanDays : 0;
 
   const dayTotals = groupBy(data, e => e.date);
   let maxDay = '', maxDayTotal = 0;
@@ -271,7 +274,7 @@ function updateStats(data) {
 
   document.getElementById('stats').innerHTML =
     statCard('Total Spent', total.toFixed(2), DATA.currency, '', true) +
-    statCard('Avg / Day', avgDay.toFixed(2), DATA.currency, days + ' days') +
+    statCard('Avg / Day', avgDay.toFixed(2), DATA.currency, spanDays + ' days') +
     statCard('Most Expensive Day', maxDayTotal.toFixed(2), DATA.currency, fmtDate(maxDay)) +
     statCard('Top Product', maxProdTotal.toFixed(2), DATA.currency, maxProd);
 }
