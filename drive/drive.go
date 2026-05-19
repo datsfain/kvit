@@ -421,6 +421,33 @@ func pullFile(srv *drive.Service, filename, folderID string) (bool, error) {
 	return true, nil
 }
 
+// FetchFileContent downloads a file from Drive into memory without writing to disk.
+// Returns nil, nil if the file doesn't exist in the folder.
+func FetchFileContent(filename string) ([]byte, error) {
+	folderID, err := GetLinkedFolderID()
+	if err != nil {
+		return nil, err
+	}
+	srv, err := getService()
+	if err != nil {
+		return nil, err
+	}
+	q := fmt.Sprintf("name='%s' and '%s' in parents and trashed=false", escapeQuery(filename), escapeQuery(folderID))
+	list, err := srv.Files.List().Q(q).Fields("files(id)").Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to search for %s: %w", filename, err)
+	}
+	if len(list.Files) == 0 {
+		return nil, nil
+	}
+	resp, err := srv.Files.Get(list.Files[0].Id).Download()
+	if err != nil {
+		return nil, fmt.Errorf("failed to download %s: %w", filename, err)
+	}
+	defer resp.Body.Close()
+	return io.ReadAll(resp.Body)
+}
+
 type syncResult struct {
 	filename string
 	ok       bool
