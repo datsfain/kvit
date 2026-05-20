@@ -13,12 +13,7 @@ import (
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
-	Short: "Sync CSV files with Google Drive",
-	Long: `Sync your expense data with Google Drive.
-
-Usage:
-  kvit sync push     Upload local files to Drive (overwrites remote)
-  kvit sync pull     Download files from Drive (overwrites local)`,
+	Short: "push · pull · fetch · open · link — Google Drive sync",
 }
 
 var syncPushCmd = &cobra.Command{
