@@ -34,6 +34,7 @@ Paste the prompt into any AI assistant (Gemini, ChatGPT, Claude, etc.) along wit
 ```bash
 kvit sync push     # upload data
 kvit sync pull     # download data
+kvit sync fetch    # compare local vs remote — shows last date on each side, offers to push or pull
 kvit sync open     # open folder in browser
 kvit sync link     # link to a different folder
 ```
@@ -45,10 +46,11 @@ On first use, `push` or `pull` will prompt you to sign in and link a Google Driv
 | Command | Description |
 |---|---|
 | `kvit add <store> [date] <product:price>...` | Add expenses. Use `+` between stores for multi-store. |
-| `kvit i` | Interactive mode with autocomplete and date picker. |
+| `kvit i` | Interactive mode with autocomplete and date picker. Press `ctrl+e` to edit or delete already-entered items. |
 | `kvit summary` | Generate an interactive HTML spending report. |
 | `kvit prompt` | Copy an AI receipt-scanning prompt to clipboard. |
 | `kvit sync push/pull/open/link` | Google Drive sync. |
+| `kvit sync fetch` | Compare local vs remote — shows last date on each side, offers to push or pull. |
 | `kvit auth` | Sign in with Google. `--force` to re-auth, `logout` to sign out. |
 | `kvit exclude add/remove/list` | Control which products appear in the AI prompt. |
 | `kvit update` | Update kvit to the latest version. |
@@ -56,10 +58,11 @@ On first use, `push` or `pull` will prompt you to sign in and link a Google Driv
 ## Spending report
 
 `kvit summary` generates an interactive HTML report with:
-- Spending by category and store (pie + bar charts)
+- Spending by category and store (pie + bar charts) — toggle top 10/20/50 products in the pie chart
 - Daily and weekly/monthly trends with category drill-down
 - Sortable, searchable expense table with expandable categories
 - Date range presets (this month, last 3 months, etc.)
+- Exclude individual products or whole categories on the fly — all charts update instantly
 - Customizable category colors — pick colors in the report and save `colors.csv`
 
 ## Data format
