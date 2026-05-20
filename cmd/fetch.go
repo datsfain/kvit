@@ -24,8 +24,14 @@ var fetchCmd = &cobra.Command{
 		fmt.Print("Fetching remote... ")
 		remoteISO, err := lastRemoteISO()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			if isAuthError(err) && reauth() {
+				fmt.Print("Fetching remote... ")
+				remoteISO, err = lastRemoteISO()
+			}
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
 		}
 		fmt.Print("\r                   \r")
 
