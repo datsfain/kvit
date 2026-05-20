@@ -43,8 +43,16 @@ var fetchCmd = &cobra.Command{
 			fmt.Println("✓  in sync")
 		case localISO > remoteISO:
 			fmt.Println("⬆  push")
+			if askYN("Push now? [Y/n]: ") {
+				syncWithRetry("⬆ Pushing to Google Drive...", func() error {
+					return drive.Push(config.SyncableFiles())
+				})
+			}
 		case remoteISO > localISO:
 			fmt.Println("⬇  pull")
+			if askYN("Pull now? [Y/n]: ") {
+				runPull()
+			}
 		default:
 			fmt.Println("✓  in sync")
 		}
