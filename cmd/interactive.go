@@ -38,6 +38,13 @@ const (
 	phaseAnotherStore
 )
 
+type searchMode int
+
+const (
+	searchStartsWith searchMode = 0
+	searchContains   searchMode = 1
+)
+
 type interactiveModel struct {
 	phase        phase
 	textInput    textinput.Model
@@ -51,10 +58,11 @@ type interactiveModel struct {
 	warnings     []string
 	done         bool
 	cancelled    bool
-	editMode      bool  // cursor navigation through entries
-	editCursor    int   // index into editableLines()
-	editing       bool  // actively editing a field via text input
-	editPrevPhase phase // phase to restore on edit exit
+	editMode      bool       // cursor navigation through entries
+	editCursor    int        // index into editableLines()
+	editing       bool       // actively editing a field via text input
+	editPrevPhase phase      // phase to restore on edit exit
+	searchMode    searchMode // product suggestion filtering mode
 }
 
 // editLine points to a single editable row.
@@ -349,6 +357,16 @@ func (m interactiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.enterEditMode()
 			return m, nil
 
+		case "ctrl+f":
+			if m.phase == phaseProduct {
+				if m.searchMode == searchStartsWith {
+					m.searchMode = searchContains
+				} else {
+					m.searchMode = searchStartsWith
+				}
+				return m, nil
+			}
+
 		case "up", "down":
 			if m.phase == phaseDate {
 				if msg.String() == "up" {
@@ -591,6 +609,13 @@ func (m interactiveModel) View() string {
 	if len(m.entries) > 0 || len(m.currentItems) > 0 {
 		b.WriteString("\n\n" + hintStyle.Render("  ctrl+e: edit previous entries"))
 	}
+	if m.phase == phaseProduct {
+		if m.searchMode == searchContains {
+			b.WriteString("\n" + hintStyle.Render("  ctrl+f: [contains] → prefix"))
+		} else {
+			b.WriteString("\n" + hintStyle.Render("  ctrl+f: [prefix] → contains"))
+		}
+	}
 
 	// Inline hints after the text input on the same line
 	switch m.phase {
@@ -622,8 +647,15 @@ func (m interactiveModel) View() string {
 			var matches []string
 			lower := strings.ToLower(typed[0])
 			for _, p := range m.productNames {
-				if strings.HasPrefix(strings.ToLower(p), lower) {
-					matches = append(matches, p)
+				lp := strings.ToLower(p)
+				if m.searchMode == searchContains {
+					if strings.Contains(lp, lower) {
+						matches = append(matches, p)
+					}
+				} else {
+					if strings.HasPrefix(lp, lower) {
+						matches = append(matches, p)
+					}
 				}
 			}
 			if len(matches) > 0 && !(len(matches) == 1 && strings.ToLower(matches[0]) == lower) {

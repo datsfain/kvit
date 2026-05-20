@@ -46,13 +46,15 @@ On first use, `push` or `pull` will prompt you to sign in and link a Google Driv
 | Command | Description |
 |---|---|
 | `kvit add <store> [date] <product:price>...` | Add expenses. Use `+` between stores for multi-store. |
-| `kvit i` | Interactive mode with autocomplete and date picker. Press `ctrl+e` to edit or delete already-entered items. |
+| `kvit i` | Interactive mode with autocomplete and date picker. `ctrl+e` to edit/delete entered items. `ctrl+f` to toggle between prefix and contains product search. |
 | `kvit summary` | Generate an interactive HTML spending report. |
 | `kvit prompt` | Copy an AI receipt-scanning prompt to clipboard. |
 | `kvit sync push/pull/open/link` | Google Drive sync. |
 | `kvit sync fetch` | Compare local vs remote — shows last date on each side, offers to push or pull. |
 | `kvit auth` | Sign in with Google. `--force` to re-auth, `logout` to sign out. |
 | `kvit exclude add/remove/list` | Control which products appear in the AI prompt. |
+| `kvit list products` | List all known products with their category. `--contains` / `--starts-with` to filter. |
+| `kvit list categories` | List all categories with product count. `--contains` / `--starts-with` to filter. |
 | `kvit update` | Update kvit to the latest version. |
 
 ## Spending report
